@@ -4,29 +4,41 @@
 #include <string.h>
 #include "text.h"
 
-Text text = {
-    .length = 0,
-    .capacity = 16,
-    .text = 0};
+#define MAX(x, y) (((x) > (y)) ? (x) : (y))
+#define DEFAULT_CAPACITY = 16
 
-void text_init()
+TextBuffer text_new(char *initialStr)
 {
-    text.text = malloc(sizeof(char) * text.capacity);
-    text.text[0] = '\0'; // Null terminate the string or we get random garbage
+    TextBuffer buffer;
+    int len = strlen(initialStr);
+    int capacity = MAX(len, 16);
+    buffer.text = malloc(sizeof(char) * capacity);
+    memset(buffer.text, 0, sizeof(char) * capacity);
+    if (initialStr != NULL)
+    {
+        strcat(buffer.text, initialStr);
+    }
+    buffer.capacity = capacity;
+    buffer.length = len;
+    return buffer;
 }
 
-void text_add(char *str)
+void text_append(TextBuffer *buffer, char *str)
 {
-    printf("Text add! %s", str);
-    printf("Current text %s", text.text);
+
     size_t len = strlen(str);
-    if (len + text.length >= text.capacity)
+    // printf("text append! BufferLen: %i BufferCapacity: %i, strLen: %i, content: %s\n", buffer->length, buffer->capacity, len, buffer->text);
+    if (len + buffer->length + 1 >= buffer->capacity)
     {
-        size_t s = sizeof(char) * text.capacity * 2;
+        // printf("Making buffer bigger! %i - current: %i\n", len, buffer->length);
+        size_t s = sizeof(char) * (buffer->capacity * 2);
         char *t = malloc(s);
-        memcpy(t, text.text, text.length * sizeof(char));
-        text.capacity = s;
+        memset(t, 0, s); // Clear the memory so that strcat works correctly
+        memcpy(t, buffer->text, buffer->length * sizeof(char));
+        free(buffer->text);
+        buffer->text = t;
+        buffer->capacity = s;
     }
-    strcat_s(text.text, text.capacity, str);
-    text.length += len;
+    buffer->length += len;
+    strcat(buffer->text, str);
 }

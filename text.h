@@ -7,11 +7,9 @@ typedef struct
     char *text;
     int capacity;
     int length;
-} Text;
+} TextBuffer;
 
-extern Text text;
-
-void text_init();
-void text_add(char *str);
+TextBuffer text_new(char *initialStr);
+void text_append(TextBuffer *buffer, char *str);
 
 #endif // _TEXT_H

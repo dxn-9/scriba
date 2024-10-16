@@ -1,6 +1,5 @@
-#include "SDL.h"
-#include "SDL_render.h"
-#include "SDL_ttf.h"
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
 #include "text.h"
 
 #include <stdbool.h>
@@ -10,8 +9,45 @@
 SDL_Window *win = NULL;
 SDL_Renderer *renderer;
 TTF_Font *font;
-SDL_Surface *text_surface;
-SDL_Texture *text_tex;
+
+TextBuffer main_buffer;
+
+char *initial_text = "Hello";
+
+void render_text(char *str, int offsetY)
+{
+    // printf("RenderText::%s, len:%i\n", str, strlen(str));
+    SDL_Surface *surface = TTF_RenderText_Blended(font, str, (SDL_Color){0, 0, 0});
+
+    if (surface == NULL)
+    {
+        printf("Error creating surface in render_text: %s\n", SDL_GetError());
+        return;
+    }
+    SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
+
+    if (texture == NULL)
+    {
+        printf("Error creating texture in render_text: %s\n", SDL_GetError());
+        return;
+    }
+
+    int texW, texH;
+    if (SDL_QueryTexture(texture, NULL, NULL, &texW, &texH) < 0)
+    {
+        printf("QueryTexture Failed %s", SDL_GetError());
+        return;
+    }
+
+    if (SDL_RenderCopy(renderer, texture, NULL, &(SDL_Rect){0, offsetY, texW, texH}) < 0)
+    {
+        printf("RenderCopy failed: %s", SDL_GetError());
+        return;
+    }
+
+    SDL_FreeSurface(surface);
+    SDL_DestroyTexture(texture);
+}
 
 bool loop()
 {
@@ -23,36 +59,38 @@ bool loop()
 
     while (SDL_PollEvent(&e) != 0)
     {
-
         switch (e.type)
         {
         case SDL_TEXTINPUT:
-            text_add(e.text.text);
+            text_append(&main_buffer, e.text.text);
             break;
         case SDL_QUIT:
             return false;
         case SDL_KEYDOWN:
+            if (e.key.keysym.sym == SDLK_RETURN)
+            {
+                text_append(&main_buffer, "\n");
+                break;
+            }
             if (e.key.keysym.sym == SDLK_ESCAPE)
             {
                 return false;
             }
         }
     }
-    if (text.length > 0)
+    if (main_buffer.length > 0)
     {
 
-        text_surface = TTF_RenderText_Blended(font, text.text, (SDL_Color){0, 0, 0});
-
-        if (text_surface == NULL)
+        char display_buffer[main_buffer.length + 1];
+        strcpy(display_buffer, main_buffer.text);
+        char *token = strtok(display_buffer, "\n");
+        int token_count = 0;
+        while (token != NULL)
         {
-            printf("Failed to render text: %s", TTF_GetError());
-            return false;
+            render_text(token, token_count * 20);
+            token = strtok(NULL, "\n");
+            token_count++;
         }
-        text_tex = SDL_CreateTextureFromSurface(renderer, text_surface);
-        int texW, texH;
-        SDL_QueryTexture(text_tex, NULL, NULL, &texW, &texH);
-        SDL_Rect dest = {0, 0, texW, texH};
-        SDL_RenderCopy(renderer, text_tex, NULL, &dest);
     }
 
     SDL_RenderPresent(renderer);
@@ -62,7 +100,7 @@ bool loop()
 
 bool init()
 {
-    text_init();
+    main_buffer = text_new(initial_text);
 
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
     {
@@ -88,7 +126,7 @@ bool init()
         return false;
     }
 
-    font = TTF_OpenFont("ttf/JetbrainsMono-Regular.ttf", 24);
+    font = TTF_OpenFont("ttf/JetBrainsMono-Regular.ttf", 24);
 
     if (font == NULL)
     {
@@ -104,8 +142,8 @@ bool init()
 
 void quit()
 {
-    SDL_StopTextInput();
     TTF_CloseFont(font);
+    SDL_StopTextInput();
 
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(win);
