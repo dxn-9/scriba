@@ -5,53 +5,19 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include "clock.h"
+#include "cursor.h"
 
 SDL_Window *win = NULL;
 SDL_Renderer *renderer;
-TTF_Font *font;
 
-TextBuffer main_buffer;
-
-char *initial_text = "Hello";
-
-void render_text(char *str, int offsetY)
+typedef struct
 {
-    // printf("RenderText::%s, len:%i\n", str, strlen(str));
-    SDL_Surface *surface = TTF_RenderText_Blended(font, str, (SDL_Color){0, 0, 0});
+    Cursor cursor;
+} Context;
 
-    if (surface == NULL)
-    {
-        printf("Error creating surface in render_text: %s\n", SDL_GetError());
-        return;
-    }
-    SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
-
-    if (texture == NULL)
-    {
-        printf("Error creating texture in render_text: %s\n", SDL_GetError());
-        return;
-    }
-
-    int texW, texH;
-    if (SDL_QueryTexture(texture, NULL, NULL, &texW, &texH) < 0)
-    {
-        printf("QueryTexture Failed %s", SDL_GetError());
-        return;
-    }
-
-    if (SDL_RenderCopy(renderer, texture, NULL, &(SDL_Rect){0, offsetY, texW, texH}) < 0)
-    {
-        printf("RenderCopy failed: %s", SDL_GetError());
-        return;
-    }
-
-    SDL_FreeSurface(surface);
-    SDL_DestroyTexture(texture);
-}
-
-bool loop()
+bool loop(Context *context)
 {
-
     SDL_SetRenderDrawColor(renderer, 0, 255, 255, 255);
     SDL_RenderClear(renderer);
 
@@ -63,13 +29,16 @@ bool loop()
         {
         case SDL_TEXTINPUT:
             text_append(&main_buffer, e.text.text);
+            cursor_move_right(&context->cursor, &main_buffer);
             break;
         case SDL_QUIT:
             return false;
         case SDL_KEYDOWN:
+
             if (e.key.keysym.sym == SDLK_RETURN)
             {
                 text_append(&main_buffer, "\n");
+                cursor_move_down(&context->cursor, &main_buffer);
                 break;
             }
             if (e.key.keysym.sym == SDLK_ESCAPE)
@@ -78,20 +47,9 @@ bool loop()
             }
         }
     }
-    if (main_buffer.length > 0)
-    {
 
-        char display_buffer[main_buffer.length + 1];
-        strcpy(display_buffer, main_buffer.text);
-        char *token = strtok(display_buffer, "\n");
-        int token_count = 0;
-        while (token != NULL)
-        {
-            render_text(token, token_count * 20);
-            token = strtok(NULL, "\n");
-            token_count++;
-        }
-    }
+    render_text(renderer);
+    render_cursor(renderer, &context->cursor);
 
     SDL_RenderPresent(renderer);
 
@@ -100,7 +58,6 @@ bool loop()
 
 bool init()
 {
-    main_buffer = text_new(initial_text);
 
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
     {
@@ -126,25 +83,23 @@ bool init()
         return false;
     }
 
-    font = TTF_OpenFont("ttf/JetBrainsMono-Regular.ttf", 24);
-
-    if (font == NULL)
+    if (!init_text())
     {
-        printf("Failed to load font: %s", TTF_GetError());
+        printf("Could not initialize text: %s", TTF_GetError());
         return false;
     }
 
     // Start sending SDL_TextInput events
     SDL_StartTextInput();
+    clock.time = SDL_GetTicks();
 
     return true;
 }
 
 void quit()
 {
-    TTF_CloseFont(font);
+    clean_text();
     SDL_StopTextInput();
-
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(win);
     SDL_Quit();
@@ -153,15 +108,20 @@ void quit()
 int main(int argc, char **argv)
 {
 
+    Context context;
     if (!init())
     {
 
         return 1;
     }
+    Cursor cursor = new_cursor(0, 0, char_w_, char_h_);
+    context.cursor = cursor;
 
-    while (loop())
+    while (loop(&context))
     {
-        SDL_Delay(10);
+        int now = SDL_GetTicks();
+        clock.delta_time = now - clock.time;
+        clock.time = now;
     }
 
     quit();

@@ -1,7 +1,7 @@
 CC := clang
 TARGET_NAME := scriba
-SOURCE := text.c main.c
-LDFLAGS := -lSDL2 -lSDL2_ttf
+SOURCE := clock.c cursor.c text.c main.c
+LDFLAGS := -I. -lSDL2 -lSDL2_ttf
 
 
 
