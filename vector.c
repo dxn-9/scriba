@@ -11,7 +11,7 @@ Vector vector_new(size_t element_size)
     return vec;
 }
 
-void vector_push(Vector *vec, void *element)
+void vector_push(Vector *vec, const void *element)
 {
     if (vec->length == vec->capacity)
     {

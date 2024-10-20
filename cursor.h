@@ -1,7 +1,7 @@
 #ifndef _CURSOR_H
 #define _CURSOR_H
 
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 
 #define RECTANGLE_BLINK 500 // ms
 

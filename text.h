@@ -5,7 +5,7 @@
 
 #include "vector.h"
 #include <stdbool.h>
-#include <SDL2/SDL_ttf.h>
+#include <SDL3_ttf/SDL_ttf.h>
 #include "cursor.h"
 
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
@@ -27,7 +27,7 @@ extern int char_h_;
 
 TextBuffer text_new(char *initialStr);
 void text_newline(TextBuffer *buffer, Cursor *cursor);
-void text_append(TextBuffer *buffer, char *str);
+void text_append(TextBuffer *buffer, const char *str);
 void render_text(SDL_Renderer *renderer, TextBuffer *text);
 void clean_text(TextBuffer *buffer);
 bool init_text();

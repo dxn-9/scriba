@@ -14,5 +14,5 @@ typedef struct
 } Vector;
 
 Vector vector_new(size_t element_size);
-void vector_push(Vector *vec, void *element);
+void vector_push(Vector *vec, const void *element);
 void vector_free(Vector *vec);

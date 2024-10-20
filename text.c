@@ -23,7 +23,7 @@ void text_newline(TextBuffer *buffer, Cursor *cursor)
     vector_push(&buffer->lines, &cursor->x);
 }
 
-void text_append(TextBuffer *buffer, char *str)
+void text_append(TextBuffer *buffer, const char *str)
 {
     size_t len = strlen(str);
     for (int i = 0; i < len; ++i)
@@ -38,7 +38,7 @@ void render_text(SDL_Renderer *renderer, TextBuffer *buffer)
 {
     Vector text = buffer->text;
     Vector lines = buffer->lines;
-    printf("RenderText::%i\n", text.length);
+    printf("RenderText::%zu\n", text.length);
 
     if (text.length > 0)
     {
@@ -64,7 +64,8 @@ void render_text(SDL_Renderer *renderer, TextBuffer *buffer)
             // printf("RenderText::%s, len:%i\n", str, strlen(str));
             printf("RenderText::Size %i\n", size);
             printf("RenderText::Text %s\n", text);
-            SDL_Surface *surface = TTF_RenderUTF8_Blended(font, text, (SDL_Color){0, 0, 0});
+
+            SDL_Surface *surface = TTF_RenderText_Blended(font, text, strlen(text), (SDL_Color){0, 0, 0});
 
             if (surface == NULL)
             {
@@ -78,20 +79,24 @@ void render_text(SDL_Renderer *renderer, TextBuffer *buffer)
                 return;
             }
 
-            int texW, texH;
-            if (SDL_QueryTexture(texture, NULL, NULL, &texW, &texH) < 0)
+            SDL_PropertiesID properties = SDL_GetTextureProperties(texture);
+            int texW = SDL_GetNumberProperty(properties, SDL_PROP_TEXTURE_WIDTH_NUMBER, 0);
+            int texH = SDL_GetNumberProperty(properties, SDL_PROP_TEXTURE_HEIGHT_NUMBER, 0);
+            printf("TextureProperties: %i %i\n", texW, texH);
+
+            if (!properties)
             {
                 printf("QueryTexture Failed %s", SDL_GetError());
                 return;
             }
 
-            if (SDL_RenderCopy(renderer, texture, NULL, &(SDL_Rect){0, i * texH, texW, texH}) < 0)
+            if (!SDL_RenderTexture(renderer, texture, NULL, &(SDL_FRect){0, i * texH, texW, texH}))
             {
                 printf("RenderCopy failed: %s", SDL_GetError());
                 return;
             }
 
-            SDL_FreeSurface(surface);
+            SDL_DestroySurface(surface);
             SDL_DestroyTexture(texture);
             left = right;
         }
@@ -111,11 +116,11 @@ bool init_text()
     SDL_Surface *glyph = TTF_RenderGlyph_Blended(font, '?', (SDL_Color){0});
     char_w_ = glyph->w;
     char_h_ = glyph->h;
-    SDL_FreeSurface(glyph);
+    SDL_DestroySurface(glyph);
 
     if (font == NULL)
     {
-        printf("Failed to load font: %s", TTF_GetError());
+        printf("Failed to load font: %s", SDL_GetError());
         return false;
     }
     return true;

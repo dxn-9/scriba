@@ -1,5 +1,5 @@
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_ttf.h>
+#include <SDL3/SDL.h>
+#include <SDL3_ttf/SDL_ttf.h>
 #include "text.h"
 
 #include <stdbool.h>
@@ -28,14 +28,14 @@ bool loop(Context *context)
     {
         switch (e.type)
         {
-        case SDL_TEXTINPUT:
+        case SDL_EVENT_TEXT_INPUT:
             text_append(&context->main_buffer, e.text.text);
             cursor_move_right(&context->cursor, &context->main_buffer);
             break;
-        case SDL_QUIT:
+        case SDL_EVENT_QUIT:
             return false;
-        case SDL_KEYDOWN:
-            switch (e.key.keysym.sym)
+        case SDL_EVENT_KEY_DOWN:
+            switch (e.key.key)
             {
             case SDLK_LEFT:
                 cursor_move_left(&context->cursor, &context->main_buffer);
@@ -54,6 +54,7 @@ bool loop(Context *context)
                 cursor_move_down(&context->cursor, &context->main_buffer);
                 break;
             case SDLK_ESCAPE:
+                printf("escape! \n");
                 return false;
             }
         }
@@ -70,39 +71,39 @@ bool loop(Context *context)
 bool init()
 {
 
-    if (SDL_Init(SDL_INIT_VIDEO) < 0)
+    if (!SDL_Init(SDL_INIT_VIDEO))
     {
         printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
         return false;
     }
-    win = SDL_CreateWindow("Hello World", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 500, 300, 0);
+    win = SDL_CreateWindow("Hello World", 500, 300, 0);
     if (win == NULL)
     {
         printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
         return false;
     }
 
-    renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
+    renderer = SDL_CreateRenderer(win, NULL);
     if (renderer == NULL)
     {
         printf("Failed to create renderer %s", SDL_GetError());
         return false;
     }
-    if (TTF_Init() == -1)
+    if (!TTF_Init())
     {
-        printf("Could not initialize TTF: %s", TTF_GetError());
+        printf("Could not initialize TTF: %s", SDL_GetError());
         return false;
     }
 
     if (!init_text())
     {
-        printf("Could not initialize text: %s", TTF_GetError());
+        printf("Could not initialize text: %s", SDL_GetError());
         return false;
     }
 
     // Start sending SDL_TextInput events
-    SDL_StartTextInput();
-    clock.time = SDL_GetTicks();
+    SDL_StartTextInput(win);
+    appClock.time = SDL_GetTicks();
 
     return true;
 }
@@ -110,7 +111,7 @@ bool init()
 void quit(Context *context)
 {
     clean_text(&context->main_buffer);
-    SDL_StopTextInput();
+    SDL_StopTextInput(win);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(win);
     SDL_Quit();
@@ -132,8 +133,8 @@ int main(int argc, char **argv)
     while (loop(&context))
     {
         int now = SDL_GetTicks();
-        clock.delta_time = now - clock.time;
-        clock.time = now;
+        appClock.delta_time = now - appClock.time;
+        appClock.time = now;
     }
 
     quit(&context);

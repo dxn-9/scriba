@@ -8,6 +8,6 @@ typedef struct
 } Clock;
 
 void update_clock();
-extern Clock clock;
+extern Clock appClock;
 
 #endif // _CLOCK_H
