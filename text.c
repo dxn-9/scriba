@@ -1,66 +1,70 @@
-
-#include <SDL2/SDL_ttf.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "cursor.h"
 #include "text.h"
-#include <stdbool.h>
 
 int char_w_, char_h_;
 TTF_Font *font;
 char *initial_text = "Hello";
-TextBuffer main_buffer;
 
-TextBuffer text_new(char *initialStr)
+TextBuffer text_new(char *initial_str)
 {
-    TextBuffer buffer;
-    int len = strlen(initialStr);
-    int capacity = MAX(len, 16);
-    buffer.text = malloc(sizeof(char) * capacity);
-    memset(buffer.text, 0, sizeof(char) * capacity);
-    if (initialStr != NULL)
-    {
-        strcat(buffer.text, initialStr);
-    }
-    buffer.capacity = capacity;
-    buffer.length = len;
+    TextBuffer buffer = {
+        .text = vector_new(sizeof(char)),
+        .lines = vector_new(sizeof(int))};
+
+    text_append(&buffer, initial_str);
+
     return buffer;
+}
+void text_newline(TextBuffer *buffer, Cursor *cursor)
+{
+    vector_push(&buffer->lines, &cursor->x);
 }
 
 void text_append(TextBuffer *buffer, char *str)
 {
-
     size_t len = strlen(str);
-    // printf("text append! BufferLen: %i BufferCapacity: %i, strLen: %i, content: %s\n", buffer->length, buffer->capacity, len, buffer->text);
-    if (len + buffer->length + 1 >= buffer->capacity)
+    for (int i = 0; i < len; ++i)
     {
-        // printf("Making buffer bigger! %i - current: %i\n", len, buffer->length);
-        size_t s = sizeof(char) * (buffer->capacity * 2);
-        char *t = malloc(s);
-        memset(t, 0, s); // Clear the memory so that strcat works correctly
-        memcpy(t, buffer->text, buffer->length * sizeof(char));
-        free(buffer->text);
-        buffer->text = t;
-        buffer->capacity = s;
+        vector_push(&buffer->text, &str[i]);
     }
-    buffer->length += len;
-    strcat(buffer->text, str);
 }
 
-void render_text(SDL_Renderer *renderer)
+// FIXME: this is bad for performance. we're basically creating a new texture every frame
+// for each line. It should be cached.
+void render_text(SDL_Renderer *renderer, TextBuffer *buffer)
 {
-    if (main_buffer.length > 0)
+    Vector text = buffer->text;
+    Vector lines = buffer->lines;
+    printf("RenderText::%i\n", text.length);
+
+    if (text.length > 0)
     {
-        // FIXME: this is bad for performance. we're basically creating a new texture every frame
-        // for each line
-        char display_buffer[main_buffer.length + 1];
-        strcpy(display_buffer, main_buffer.text);
-        char *token = strtok(display_buffer, "\n");
-        int token_count = 0;
-        while (token != NULL)
+        int left = 0;
+        int right = 0;
+        for (int i = 0; i <= buffer->lines.length; i++)
         {
+            if (i == lines.length)
+            {
+                right = text.length;
+            }
+            else
+            {
+                right = ((int *)lines.data)[i];
+            }
+
+            int size = right - left;
+            if (size == 0)
+                continue;
+            char text[size + 1];
+            memcpy(text, &((char *)buffer->text.data)[left], size * buffer->text.element_size);
+            text[size] = '\0';
             // printf("RenderText::%s, len:%i\n", str, strlen(str));
-            SDL_Surface *surface = TTF_RenderUTF8_Blended(font, token, (SDL_Color){0, 0, 0});
+            printf("RenderText::Size %i\n", size);
+            printf("RenderText::Text %s\n", text);
+            SDL_Surface *surface = TTF_RenderUTF8_Blended(font, text, (SDL_Color){0, 0, 0});
 
             if (surface == NULL)
             {
@@ -81,7 +85,7 @@ void render_text(SDL_Renderer *renderer)
                 return;
             }
 
-            if (SDL_RenderCopy(renderer, texture, NULL, &(SDL_Rect){0, token_count * texH, texW, texH}) < 0)
+            if (SDL_RenderCopy(renderer, texture, NULL, &(SDL_Rect){0, i * texH, texW, texH}) < 0)
             {
                 printf("RenderCopy failed: %s", SDL_GetError());
                 return;
@@ -89,20 +93,19 @@ void render_text(SDL_Renderer *renderer)
 
             SDL_FreeSurface(surface);
             SDL_DestroyTexture(texture);
-            token = strtok(NULL, "\n");
-            token_count++;
+            left = right;
         }
     }
 }
 
-void clean_text()
+void clean_text(TextBuffer *buffer)
 {
-    free(main_buffer.text);
+    vector_free(&buffer->lines);
+    vector_free(&buffer->text);
     TTF_CloseFont(font);
 }
 bool init_text()
 {
-    main_buffer = text_new(initial_text);
     font = TTF_OpenFont("ttf/JetBrainsMono-Regular.ttf", FONT_SIZE);
 
     SDL_Surface *glyph = TTF_RenderGlyph_Blended(font, '?', (SDL_Color){0});

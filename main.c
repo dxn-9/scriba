@@ -14,6 +14,7 @@ SDL_Renderer *renderer;
 typedef struct
 {
     Cursor cursor;
+    TextBuffer main_buffer;
 } Context;
 
 bool loop(Context *context)
@@ -28,27 +29,37 @@ bool loop(Context *context)
         switch (e.type)
         {
         case SDL_TEXTINPUT:
-            text_append(&main_buffer, e.text.text);
-            cursor_move_right(&context->cursor, &main_buffer);
+            text_append(&context->main_buffer, e.text.text);
+            cursor_move_right(&context->cursor, &context->main_buffer);
             break;
         case SDL_QUIT:
             return false;
         case SDL_KEYDOWN:
-
-            if (e.key.keysym.sym == SDLK_RETURN)
+            switch (e.key.keysym.sym)
             {
-                text_append(&main_buffer, "\n");
-                cursor_move_down(&context->cursor, &main_buffer);
+            case SDLK_LEFT:
+                cursor_move_left(&context->cursor, &context->main_buffer);
                 break;
-            }
-            if (e.key.keysym.sym == SDLK_ESCAPE)
-            {
+            case SDLK_UP:
+                cursor_move_up(&context->cursor, &context->main_buffer);
+                break;
+            case SDLK_RIGHT:
+                cursor_move_right(&context->cursor, &context->main_buffer);
+                break;
+            case SDLK_DOWN:
+                cursor_move_down(&context->cursor, &context->main_buffer);
+                break;
+            case SDLK_RETURN:
+                text_newline(&context->main_buffer, &context->cursor);
+                cursor_move_down(&context->cursor, &context->main_buffer);
+                break;
+            case SDLK_ESCAPE:
                 return false;
             }
         }
     }
 
-    render_text(renderer);
+    render_text(renderer, &context->main_buffer);
     render_cursor(renderer, &context->cursor);
 
     SDL_RenderPresent(renderer);
@@ -96,9 +107,9 @@ bool init()
     return true;
 }
 
-void quit()
+void quit(Context *context)
 {
-    clean_text();
+    clean_text(&context->main_buffer);
     SDL_StopTextInput();
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(win);
@@ -116,6 +127,7 @@ int main(int argc, char **argv)
     }
     Cursor cursor = new_cursor(0, 0, char_w_, char_h_);
     context.cursor = cursor;
+    context.main_buffer = text_new("Hello");
 
     while (loop(&context))
     {
@@ -124,6 +136,6 @@ int main(int argc, char **argv)
         clock.time = now;
     }
 
-    quit();
+    quit(&context);
     return 0;
 }

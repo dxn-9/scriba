@@ -1,32 +1,35 @@
 
+
 #ifndef _TEXT_H
 #define _TEXT_H
+
+#include "vector.h"
+#include <stdbool.h>
+#include <SDL2/SDL_ttf.h>
+#include "cursor.h"
 
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define DEFAULT_CAPACITY 16
 #define FONT_SIZE 24
 
-#include <stdbool.h>
-#include <SDL2/SDL_ttf.h>
-
-typedef struct
+typedef struct TextBuffer
 {
-    char *text;
-    int capacity;
-    int length;
+    Vector text;  // Contains the text buffer
+    Vector lines; // Contains the indices of the line breaks.
 
 } TextBuffer;
 
 extern TTF_Font *font;
 extern char *initial_text;
-extern TextBuffer main_buffer;
+void clean_text(TextBuffer *buffer);
 extern int char_w_;
 extern int char_h_;
 
 TextBuffer text_new(char *initialStr);
+void text_newline(TextBuffer *buffer, Cursor *cursor);
 void text_append(TextBuffer *buffer, char *str);
-void render_text(SDL_Renderer *renderer);
-void clean_text();
+void render_text(SDL_Renderer *renderer, TextBuffer *text);
+void clean_text(TextBuffer *buffer);
 bool init_text();
 
 #endif // _TEXT_H
