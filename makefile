@@ -1,7 +1,7 @@
 CC := clang
-CFLAGS := $(shell pkg-config sdl3-ttf --cflags)
+CFLAGS := -g $(shell pkg-config sdl3-ttf --cflags)
 TARGET_NAME := scriba
-SOURCE := main.c vector.c clock.c cursor.c text.c 
+SOURCE := main.c utils.c vector.c clock.c cursor.c text.c 
 LDFLAGS := -I. $(shell pkg-config sdl3-ttf --libs)
 
 
@@ -12,5 +12,5 @@ run: clean build
 clean: 
 	rm -f $(TARGET_NAME) > /dev/null
 build:
-	$(CC) -g $(SOURCE) $(CFLAGS) $(LDFLAGS) -o $(TARGET_NAME)
+	$(CC) $(SOURCE) $(CFLAGS) $(LDFLAGS) -o $(TARGET_NAME)
 

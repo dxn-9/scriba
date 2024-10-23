@@ -29,7 +29,7 @@ bool loop(Context *context)
         switch (e.type)
         {
         case SDL_EVENT_TEXT_INPUT:
-            text_append(&context->main_buffer, e.text.text);
+            text_add(&context->main_buffer, &context->cursor, e.text.text);
             cursor_move_right(&context->cursor, &context->main_buffer);
             break;
         case SDL_EVENT_QUIT:
@@ -46,15 +46,24 @@ bool loop(Context *context)
             case SDLK_RIGHT:
                 cursor_move_right(&context->cursor, &context->main_buffer);
                 break;
+            case SDLK_R:
+                printf("TextBuffer: \n");
+                debug_vec(&context->main_buffer.text);
+                printf("LinesBuffer: \n");
+                debug_vec(&context->main_buffer.lines);
+                break;
             case SDLK_DOWN:
                 cursor_move_down(&context->cursor, &context->main_buffer);
                 break;
             case SDLK_RETURN:
                 text_newline(&context->main_buffer, &context->cursor);
-                cursor_move_down(&context->cursor, &context->main_buffer);
                 break;
+            case SDLK_BACKSPACE:
+            {
+                text_remove_char(&context->main_buffer, &context->cursor);
+            }
+            break;
             case SDLK_ESCAPE:
-                printf("escape! \n");
                 return false;
             }
         }
@@ -76,7 +85,7 @@ bool init()
         printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
         return false;
     }
-    win = SDL_CreateWindow("Hello World", 500, 300, 0);
+    win = SDL_CreateWindow("Scriba", 500, 300, 0);
     if (win == NULL)
     {
         printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
@@ -128,7 +137,7 @@ int main(int argc, char **argv)
     }
     Cursor cursor = new_cursor(0, 0, char_w_, char_h_);
     context.cursor = cursor;
-    context.main_buffer = text_new("Hello");
+    context.main_buffer = text_new(&cursor, initial_text);
 
     while (loop(&context))
     {

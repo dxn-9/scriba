@@ -3,26 +3,42 @@
 #include "text.h"
 #include "clock.h"
 #include "cursor.h"
+#include "utils.h"
 #include <stdbool.h>
 
 SDL_Color red = {255, 0, 0, 255};
 SDL_Color blue = {0, 0, 255, 255};
 
+int get_buffer_index(Cursor *cursor, TextBuffer *buffer)
+{
+    return get_line_at(buffer, cursor->y)->start + cursor->x;
+}
 void cursor_move_up(Cursor *cursor, TextBuffer *buffer)
 {
-    cursor->y--;
+    cursor->y = MAX(0, cursor->y - 1);
+    cursor->x = MIN(cursor->x, get_line_length(buffer, cursor->y));
 }
 void cursor_move_down(Cursor *cursor, TextBuffer *buffer)
 {
-    cursor->y++;
+    cursor->y = MIN(cursor->y + 1, buffer->lines.length - 1);
+    cursor->x = MIN(get_line_length(buffer, cursor->y), cursor->x);
 }
 void cursor_move_left(Cursor *cursor, TextBuffer *buffer)
 {
-    cursor->x--;
+    cursor->x = MAX(0, cursor->x - 1);
+}
+void cursor_move_start_line(Cursor *cursor, TextBuffer *buffer)
+{
+    cursor->x = 0;
+}
+
+void cursor_move_end_line(Cursor *cursor, TextBuffer *buffer)
+{
+    cursor->x = get_line_length(buffer, cursor->y);
 }
 void cursor_move_right(Cursor *cursor, TextBuffer *buffer)
 {
-    cursor->x++;
+    cursor->x = MIN(get_line_length(buffer, cursor->y), cursor->x + 1);
 }
 void render_cursor(SDL_Renderer *renderer, Cursor *cursor)
 {
@@ -41,8 +57,8 @@ void render_cursor(SDL_Renderer *renderer, Cursor *cursor)
 Cursor new_cursor(int x, int y, int char_w, int char_h)
 {
     Cursor cursor = {
-        .x = 0,
-        .y = 0,
+        .x = x,
+        .y = y,
         .w = char_w,
         .h = char_h};
     return cursor;
