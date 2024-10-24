@@ -20,7 +20,8 @@ void debug_vec(Vector *vec)
     {
         if (vec->element_size == sizeof(Line))
         {
-            printf("[Start: %i End: %i],", ((Line *)vec->data)[i].start, ((Line *)vec->data)[i].end);
+            Line *line = &((Line *)vec->data)[i];
+            printf("[Start: %i End: %i, Bytes: %zi, BytesOffset: %zi],", line->start, line->end, line->bytes, line->bytes_offset);
         }
         else
         {
@@ -29,14 +30,24 @@ void debug_vec(Vector *vec)
     }
     printf("\n");
 }
-void vector_remove(Vector *vec, int position)
+
+void vector_remove(Vector *vec, size_t position)
 {
     char *addr = &((char *)vec->data)[position * vec->element_size];
     memmove(addr, addr + vec->element_size, (vec->length - (position + 1)) * vec->element_size);
     vec->length--;
 }
+// Removes a range from [start..end).
+// end is not included
+void vector_remove_range(Vector *vec, Range range)
+{
+    SDL_assert(range.end > range.start);
+    char *addr = &((char *)vec->data)[range.start * vec->element_size];
+    memmove(addr, addr + (range.end - range.start) * vec->element_size, (vec->length - range.end) * vec->element_size);
+    vec->length -= (range.end - range.start);
+}
 
-void vector_add(Vector *vec, int position, const void *element)
+void vector_add(Vector *vec, size_t position, const void *element)
 {
     if (position == vec->length)
     {

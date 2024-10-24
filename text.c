@@ -6,7 +6,8 @@
 #include "utils.h"
 int char_w_, char_h_;
 TTF_Font *font;
-const char *initial_text = "Hi hello world!\nMyNameIs!\nnew line";
+// const char *initial_text = "ắ";
+const char *initial_text = "ắ\nheắắắllo!ắ";
 
 void recompute_lines(TextBuffer *buffer)
 {
@@ -16,27 +17,45 @@ void recompute_lines(TextBuffer *buffer)
         vector_free(&buffer->lines);
     }
     buffer->lines = vector_new(sizeof(Line));
+    const char *ptr = data;
     int line_start = 0;
-    for (int i = 0; i < buffer->text.length; ++i)
+    int i = 0;
+    int tot_bytes = strlen(ptr);
+
+    // using the lord's loop. lets go.
+    do
     {
-        if (data[i] == '\n')
+        if (ptr[0] == '\n' || ptr[0] == '\0')
         {
+            int bytes_offset = 0;
+
+            // Check if its not the first element
+            if (line_start != 0)
+            {
+                // If it's not, the last inserted line will have the byte offset (the number of bytes before this line)
+                Line *last_line = &((Line *)buffer->lines.data)[buffer->lines.length - 1];
+                bytes_offset = last_line->bytes_offset + last_line->bytes + 1; // +1 for new line or \0
+            }
+            int offset = 0;
+            // We don't want to count the newline in the bytes
+            if (ptr[0] == '\n')
+                offset = 1;
+
+            size_t bytes = tot_bytes - strlen(ptr);
+            tot_bytes = strlen(ptr) - offset;
+
             Line line = {
                 .start = line_start,
                 .end = i + 1, // line n is [firstchar..firstchar of n+1)
-            };
+                .bytes = bytes,
+                .bytes_offset = bytes_offset};
 
             line_start = i + 1;
             vector_push(&buffer->lines, &line);
         }
-    }
-
-    // Last line, we add 1 to the end as if there's a \0 or a \n, in order to keep consistency
-    Line line = {
-        .start = line_start,
-        .end = buffer->text.length + 1,
-    };
-    vector_push(&buffer->lines, &line);
+        i++;
+        printf("%s ptr \n", ptr);
+    } while (SDL_StepUTF8(&ptr, NULL) != 0);
 }
 
 TextBuffer text_new(Cursor *cursor, const char *initial_str)
@@ -52,6 +71,7 @@ TextBuffer text_new(Cursor *cursor, const char *initial_str)
         vector_push(&buffer.text, &initial_str[pos]);
         pos++;
     }
+    vector_push(&buffer.text, "\0");
     recompute_lines(&buffer);
     debug_vec(&buffer.text);
     debug_vec(&buffer.lines);
@@ -60,7 +80,7 @@ TextBuffer text_new(Cursor *cursor, const char *initial_str)
 void text_remove_char(TextBuffer *buffer, Cursor *cursor)
 {
     bool is_newline = false;
-    int index = get_buffer_index(cursor, buffer) - 1;
+    int index = get_buffer_index_prev(cursor, buffer);
     char *text = (char *)buffer->text.data;
 
     if (index < 0)
@@ -73,13 +93,20 @@ void text_remove_char(TextBuffer *buffer, Cursor *cursor)
     {
         cursor_move_up(cursor, buffer);
         cursor_move_end_line(cursor, buffer);
+        vector_remove(&buffer->text, index);
     }
     else
     {
+        size_t char_size = utf8_char_bytes_at(buffer, index);
+        printf("charsize: %zi String: %c\n", char_size, text[index]);
+        Range range = {
+            .start = index,
+            .end = index + char_size,
+        };
+        vector_remove_range(&buffer->text, range);
         cursor_move_left(cursor, buffer);
     }
 
-    vector_remove(&buffer->text, index);
     recompute_lines(buffer);
 }
 int get_line_length(TextBuffer *buffer, int line)
@@ -127,17 +154,17 @@ void render_text(SDL_Renderer *renderer, TextBuffer *buffer)
         for (int i = 0; i < buffer->lines.length; i++)
         {
             Line *line = get_line_at(buffer, i);
-            int size = line->end - line->start - 1;
-            if (size <= 0)
+            if (line->bytes == 0)
                 continue;
-            char text[size];
-            memcpy(text, ((char *)buffer->text.data) + line->start, size * buffer->text.element_size);
-            SDL_Surface *surface = TTF_RenderText_Blended(font, text, size, (SDL_Color){0, 0, 0});
+
+            // char text[size];
+            // memcpy(text, ((char *)buffer->text.data) + line->start, size * buffer->text.element_size);
+            SDL_Surface *surface = TTF_RenderText_Blended(font, (char *)buffer->text.data + line->bytes_offset, line->bytes, (SDL_Color){0, 0, 0});
 
             if (surface == NULL)
             {
                 printf("Error creating surface in render_text: %s\n", SDL_GetError());
-                printf("Text info: %s %i", text, size);
+                // printf("Text info: %s %i", text, size);
                 exit(1);
             }
             SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);

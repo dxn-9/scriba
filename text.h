@@ -15,14 +15,17 @@
 
 typedef struct
 {
-    int start; // index of first character of the line
-    int end;   // index of the character after the newline
+    int start;           // index of first character of the line
+    int end;             // index of the character after the newline
+    size_t bytes;        // bytes in the line (it could not equal the end-start because utf8 encoding)
+    size_t bytes_offset; // bytes before start
 } Line;
 
 typedef struct TextBuffer
 {
-    Vector text;  // Contains the text buffer
-    Vector lines; // Contains the indices of the line breaks.
+    Vector text;    // Contains the text bytes
+    Vector lines;   // Contains the indices of the line breaks.
+    int characters; // Actual characters, (utf 8)
 
 } TextBuffer;
 

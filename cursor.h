@@ -13,6 +13,7 @@ typedef struct Cursor
     int w, h; // Visual Representation
 } Cursor;
 
+int get_buffer_index_prev(Cursor *cursor, TextBuffer *buffer);
 int get_buffer_index(Cursor *cursor, TextBuffer *buffer);
 void cursor_move_down(Cursor *cursor, TextBuffer *buffer);
 void cursor_move_up(Cursor *cursor, TextBuffer *buffer);

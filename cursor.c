@@ -9,9 +9,32 @@
 SDL_Color red = {255, 0, 0, 255};
 SDL_Color blue = {0, 0, 255, 255};
 
+// Gets the index of the character before the cursor
+int get_buffer_index_prev(Cursor *cursor, TextBuffer *buffer)
+{
+    if (cursor->x == 0)
+        return get_buffer_index(cursor, buffer) - 1;
+
+    Cursor temp_cursor = {
+        .x = cursor->x - 1,
+        .y = cursor->y};
+    return get_buffer_index(&temp_cursor, buffer);
+}
 int get_buffer_index(Cursor *cursor, TextBuffer *buffer)
 {
-    return get_line_at(buffer, cursor->y)->start + cursor->x;
+    Line *line = get_line_at(buffer, cursor->y);
+    const char *data = &((char *)buffer->text.data)[line->bytes_offset];
+    const char **ptr = &data;
+    int count = cursor->x;
+    size_t bytes_until_end = strlen(*ptr); // TODO: This is probably not the efficent way to count the bytes.
+
+    while (count > 0)
+    {
+        SDL_StepUTF8(ptr, NULL);
+        count--;
+    }
+
+    return line->bytes_offset + bytes_until_end - strlen(*ptr);
 }
 void cursor_move_up(Cursor *cursor, TextBuffer *buffer)
 {

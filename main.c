@@ -128,8 +128,8 @@ void quit(Context *context)
 
 int main(int argc, char **argv)
 {
-
     Context context;
+
     if (!init())
     {
 
