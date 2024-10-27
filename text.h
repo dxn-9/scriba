@@ -40,6 +40,8 @@ typedef struct Selection
 
 } Selection;
 
+typedef struct Context Context;
+
 extern TTF_Font *font;
 extern const char *initial_text;
 void clean_text(TextBuffer *buffer);
@@ -47,8 +49,8 @@ extern int char_w_;
 extern int char_h_;
 
 TextBuffer text_new(Cursor *cursor, const char *initialStr);
-void text_remove_char(TextBuffer *buffer, Cursor *cursor);
-void text_newline(TextBuffer *buffer, Cursor *cursor);
+void text_remove_char(Context *ctx);
+void text_newline(Context *ctx);
 void text_add(TextBuffer *buffer, Cursor *cursor, const char *str);
 int get_line_length(TextBuffer *buffer, int line);
 void clean_text(TextBuffer *buffer);
@@ -56,7 +58,7 @@ bool init_text();
 
 Selection selection_new(TextBuffer *buffer, Cursor *cursor);
 Selection selection_end(TextBuffer *buffer, Cursor *cursor);
-void selection_update(Selection *selection, TextBuffer *buffer, Cursor *cursor);
+void selection_update(Context *ctx);
 
 void render_text(SDL_Renderer *renderer, TextBuffer *text, SDL_FRect view_offset);
 void render_selection(SDL_Renderer *renderer, Selection *selection, TextBuffer *text, SDL_FRect view_offset);

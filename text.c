@@ -54,7 +54,6 @@ void recompute_lines(TextBuffer *buffer)
             vector_push(&buffer->lines, &line);
         }
         i++;
-        printf("%s ptr \n", ptr);
     } while (SDL_StepUTF8(&ptr, NULL) != 0);
 }
 
@@ -77,8 +76,10 @@ TextBuffer text_new(Cursor *cursor, const char *initial_str)
     debug_vec(&buffer.lines);
     return buffer;
 }
-void text_remove_char(TextBuffer *buffer, Cursor *cursor)
+void text_remove_char(Context *ctx)
 {
+    TextBuffer *buffer = &ctx->buffer;
+    Cursor *cursor = &ctx->cursor;
     bool is_newline = false;
     int index = get_buffer_index_prev(cursor, buffer);
     char *text = (char *)buffer->text.data;
@@ -91,8 +92,8 @@ void text_remove_char(TextBuffer *buffer, Cursor *cursor)
 
     if (is_newline)
     {
-        cursor_move_up(cursor, buffer, NULL);
-        cursor_move_end_line(cursor, buffer, NULL);
+        cursor_move_up(ctx);
+        cursor_move_end_line(ctx);
         vector_remove(&buffer->text, index);
     }
     else
@@ -104,7 +105,7 @@ void text_remove_char(TextBuffer *buffer, Cursor *cursor)
             .end = index + char_size,
         };
         vector_remove_range(&buffer->text, range);
-        cursor_move_left(cursor, buffer, NULL);
+        cursor_move_left(ctx);
     }
 
     recompute_lines(buffer);
@@ -122,12 +123,14 @@ int get_line_length(TextBuffer *buffer, int line)
     // Subtract 1 since we don't want to count newlines.
     return data[line].end - data[line].start - 1;
 }
-void text_newline(TextBuffer *buffer, Cursor *cursor)
+void text_newline(Context *ctx)
 {
-    text_add(buffer, cursor, "\n");
-    recompute_lines(buffer);
-    cursor_move_down(cursor, buffer, NULL);
-    cursor_move_start_line(cursor, buffer, NULL);
+    if (ctx->selection.is_active)
+        return;
+    text_add(&ctx->buffer, &ctx->cursor, "\n");
+    recompute_lines(&ctx->buffer);
+    cursor_move_down(ctx);
+    cursor_move_start_line(ctx);
 }
 
 void text_add(TextBuffer *buffer, Cursor *cursor, const char *str)
@@ -214,34 +217,42 @@ void render_selection(SDL_Renderer *renderer, Selection *selection, TextBuffer *
     SDL_FRect rect;
     if (y_diff == 0)
     {
-        rect = selection_rect(selection->start_x, selection->start_y, ((float)selection->end_x - selection->start_x));
+        rect = selection_rect(selection->start_x, selection->start_y,
+                              ((float)selection->end_x - selection->start_x), &view_offset);
         vector_push(&rects, &rect);
     }
     else if (y_diff < 0)
     {
-        rect = selection_rect(0, selection->start_y, selection->start_x);
+        rect = selection_rect(0, selection->start_y, selection->start_x, &view_offset);
         vector_push(&rects, &rect);
-        for (int i = selection->end_y; i < selection->start_y; ++i)
+        for (int i = selection->end_y + 1; i < selection->start_y; ++i)
         {
-            rect = selection_rect(0, i, MAX(get_line_length(buffer, i), 1));
+            printf("Running!\n");
+            rect = selection_rect(0, i, MAX(get_line_length(buffer, i), 1), &view_offset);
             vector_push(&rects, &rect);
         }
 
-        rect = selection_rect(0, selection->end_y, selection->end_x);
+        rect = selection_rect(selection->end_x, selection->end_y,
+                              get_line_length(buffer, selection->end_y) - selection->end_x,
+                              &view_offset);
         vector_push(&rects, &rect);
     }
     else
     {
         // y_diff is positive >
-        rect = selection_rect(selection->start_x, selection->start_y, MAX(get_line_length(buffer, selection->start_y), 1));
+        rect = selection_rect(selection->start_x, selection->start_y,
+                              MAX(get_line_length(buffer, selection->start_y) - selection->start_x,
+                                  1),
+                              &view_offset);
         vector_push(&rects, &rect);
 
         for (int i = selection->start_y + 1; i < selection->end_y; ++i)
         {
-            rect = selection_rect(0, i, MAX(get_line_length(buffer, i), 1));
+            rect = selection_rect(0, i, MAX(get_line_length(buffer, i), 1),
+                                  &view_offset);
             vector_push(&rects, &rect);
         }
-        rect = selection_rect(0, selection->end_y, selection->end_x);
+        rect = selection_rect(0, selection->end_y, selection->end_x, &view_offset);
         vector_push(&rects, &rect);
     }
 
@@ -301,13 +312,13 @@ Selection selection_end(TextBuffer *buffer, Cursor *cursor)
     return selection;
 }
 
-void selection_update(Selection *selection, TextBuffer *buffer, Cursor *cursor)
+void selection_update(Context *ctx)
 {
-    if (selection->is_active)
+    if (ctx->selection.is_active)
     {
-        size_t index = get_buffer_index(cursor, buffer);
-        selection->end_x = cursor->x;
-        selection->end_y = cursor->y;
-        selection->buffer_end = index;
+        size_t index = get_buffer_index(&ctx->cursor, &ctx->buffer);
+        ctx->selection.end_x = ctx->cursor.x;
+        ctx->selection.end_y = ctx->cursor.y;
+        ctx->selection.buffer_end = index;
     }
 }

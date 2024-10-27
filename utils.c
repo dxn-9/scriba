@@ -4,11 +4,11 @@
 #include "utils.h"
 #include "text.h"
 
-SDL_FRect selection_rect(float x, float y, float w)
+SDL_FRect selection_rect(float x, float y, float w, SDL_FRect *offset)
 {
     SDL_FRect rect = {
-        .x = x * char_w_,
-        .y = y * char_h_,
+        .x = x * char_w_ + offset->x,
+        .y = y * char_h_ + offset->y,
         .w = w * char_w_,
         .h = char_h_};
     return rect;

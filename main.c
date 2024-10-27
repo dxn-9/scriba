@@ -1,12 +1,16 @@
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
+#include <sys/stat.h>
+#include <errno.h>
 #include "text.h"
 
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "clock.h"
 #include "cursor.h"
+#include "utils.h"
 
 #define HORIZONTAL_VIEW_OFFSET 2
 #define VERTICAL_VIEW_OFFSET 2
@@ -14,16 +18,25 @@
 SDL_Window *win = NULL;
 SDL_Renderer *renderer;
 
-typedef struct
+void save(Context *ctx)
 {
-    Cursor cursor;
-    TextBuffer main_buffer;
-    Selection selection;
-} Context;
-
+    SDL_IOStream *stream = SDL_IOFromFile(ctx->file_name, "w");
+    size_t size = SDL_WriteIO(stream, ctx->buffer.text.data, ctx->buffer.text.length - 1);
+    if (size < ctx->buffer.text.length - 1)
+    {
+        printf("SaveFailed::%s", SDL_GetError());
+        SDL_CloseIO(stream);
+        return;
+    }
+    bool result = SDL_CloseIO(stream);
+    if (!result)
+    {
+        printf("ClosingFailed::%s", SDL_GetError());
+    }
+}
 bool loop(Context *context)
 {
-    TextBuffer *main_buffer = &context->main_buffer;
+    TextBuffer *buffer = &context->buffer;
     Cursor *cursor = &context->cursor;
     Selection *selection = &context->selection;
 
@@ -38,8 +51,8 @@ bool loop(Context *context)
         switch (e.type)
         {
         case SDL_EVENT_TEXT_INPUT:
-            text_add(main_buffer, cursor, e.text.text);
-            cursor_move_right(cursor, main_buffer, selection);
+            text_add(buffer, cursor, e.text.text);
+            cursor_move_right(context);
             break;
         case SDL_EVENT_QUIT:
             return false;
@@ -47,31 +60,43 @@ bool loop(Context *context)
             switch (e.key.key)
             {
             case SDLK_LEFT:
-                cursor_move_left(cursor, main_buffer, selection);
+                if (e.key.mod == SDL_KMOD_LSHIFT && !selection->is_active)
+                    context->selection = selection_new(buffer, cursor);
+                cursor_move_left(context);
                 break;
             case SDLK_UP:
-                cursor_move_up(cursor, main_buffer, selection);
+                if (e.key.mod == SDL_KMOD_LSHIFT && !selection->is_active)
+                    context->selection = selection_new(buffer, cursor);
+                cursor_move_up(context);
                 break;
             case SDLK_RIGHT:
-                cursor_move_right(cursor, main_buffer, selection);
+                if (e.key.mod == SDL_KMOD_LSHIFT && !selection->is_active)
+                    context->selection = selection_new(buffer, cursor);
+                cursor_move_right(context);
+                break;
+            case SDLK_DOWN:
+                if (e.key.mod == SDL_KMOD_LSHIFT && !selection->is_active)
+                    context->selection = selection_new(buffer, cursor);
+                cursor_move_down(context);
+                break;
+            case SDLK_S:
+                if (e.key.mod == SDL_KMOD_LGUI)
+                {
+                    printf("Saving!!\n");
+                    save(context);
+                }
                 break;
             case SDLK_R:
                 printf("TextBuffer: \n");
-                debug_vec(&main_buffer->text);
+                debug_vec(&buffer->text);
                 printf("LinesBuffer: \n");
-                debug_vec(&main_buffer->lines);
-                break;
-            case SDLK_DOWN:
-                cursor_move_down(cursor, main_buffer, selection);
+                debug_vec(&buffer->lines);
                 break;
             case SDLK_RETURN:
-                text_newline(main_buffer, cursor);
-                break;
-            case SDLK_LSHIFT:
-                context->selection = selection_new(main_buffer, cursor);
+                text_newline(context);
                 break;
             case SDLK_BACKSPACE:
-                text_remove_char(main_buffer, cursor);
+                text_remove_char(context);
                 break;
             case SDLK_ESCAPE:
                 return false;
@@ -81,7 +106,7 @@ bool loop(Context *context)
             switch (e.key.key)
             {
             case SDLK_LSHIFT:
-                context->selection = selection_end(main_buffer, cursor);
+                context->selection = selection_end(buffer, cursor);
                 break;
             }
         }
@@ -98,8 +123,8 @@ bool loop(Context *context)
         .y = MIN(0, (cursor_nums_y - (context->cursor.y + VERTICAL_VIEW_OFFSET)) * context->cursor.h),
     };
 
-    render_selection(renderer, &context->selection, main_buffer, (SDL_FRect){});
-    render_text(renderer, main_buffer, offset);
+    render_selection(renderer, &context->selection, buffer, offset);
+    render_text(renderer, buffer, offset);
     render_cursor(renderer, cursor, offset);
 
     SDL_RenderPresent(renderer);
@@ -149,7 +174,7 @@ bool init()
 
 void quit(Context *context)
 {
-    clean_text(&context->main_buffer);
+    clean_text(&context->buffer);
     SDL_StopTextInput(win);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(win);
@@ -158,6 +183,43 @@ void quit(Context *context)
 
 int main(int argc, char **argv)
 {
+    SDL_IOStream *stream = NULL;
+    Sint64 file_size;
+    if (argc != 2)
+    {
+        printf("Usage: scriba <pathname>\n");
+        return 1;
+    }
+
+    char *file_name = argv[1];
+    struct stat sb;
+    if (stat(file_name, &sb) == -1)
+    {
+        if (errno == ENOENT)
+        {
+            stream = SDL_IOFromFile(file_name, "w+");
+        }
+        else
+        {
+            exit(EXIT_FAILURE);
+        }
+    }
+    else
+    {
+        stream = SDL_IOFromFile(file_name, "r+");
+    }
+
+    if (stream == NULL)
+    {
+        printf("SDL_IOFromFile::%s\n", SDL_GetError());
+        return 1;
+    }
+
+    file_size = SDL_GetIOSize(stream);
+    char *data = malloc(file_size);
+    SDL_ReadIO(stream, data, file_size);
+    SDL_CloseIO(stream);
+
     Context context;
 
     if (!init())
@@ -166,8 +228,11 @@ int main(int argc, char **argv)
         return 1;
     }
     Cursor cursor = new_cursor(0, 0, char_w_, char_h_);
+    context.file_name = file_name;
     context.cursor = cursor;
-    context.main_buffer = text_new(&cursor, initial_text);
+    context.buffer = text_new(&cursor, data);
+    context.selection = (Selection){.is_active = false};
+    free(data);
     while (loop(&context))
     {
         int now = SDL_GetTicks();

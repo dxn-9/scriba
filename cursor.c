@@ -35,58 +35,59 @@ int get_buffer_index(Cursor *cursor, TextBuffer *buffer)
 
     return line->bytes_offset + bytes_until_end - strlen(*ptr);
 }
-void cursor_move_up(Cursor *cursor, TextBuffer *buffer, Selection *selection)
+void cursor_move_up(Context *ctx)
 {
-    cursor->y = MAX(0, cursor->y - 1);
-    cursor->x = MIN(cursor->x, get_line_length(buffer, cursor->y));
+    ctx->cursor.y = MAX(0, ctx->cursor.y - 1);
+    ctx->cursor.x = MIN(ctx->cursor.x, get_line_length(&ctx->buffer, ctx->cursor.y));
 
-    if (selection != NULL)
+    if (ctx->selection.is_active)
     {
-        selection_update(selection, buffer, cursor);
+        selection_update(ctx);
     }
 }
-void cursor_move_down(Cursor *cursor, TextBuffer *buffer, Selection *selection)
+void cursor_move_down(Context *ctx)
 {
-    cursor->y = MIN(cursor->y + 1, buffer->lines.length - 1);
-    cursor->x = MIN(get_line_length(buffer, cursor->y), cursor->x);
-    if (selection != NULL)
+    ctx->cursor.y = MIN(ctx->cursor.y + 1, ctx->buffer.lines.length - 1);
+    ctx->cursor.x = MIN(get_line_length(&ctx->buffer, ctx->cursor.y), ctx->cursor.x);
+    if (ctx->selection.is_active)
     {
-        selection_update(selection, buffer, cursor);
+        selection_update(ctx);
     }
 }
-void cursor_move_left(Cursor *cursor, TextBuffer *buffer, Selection *selection)
-{
-    cursor->x = MAX(0, cursor->x - 1);
-    if (selection != NULL)
-    {
-        selection_update(selection, buffer, cursor);
-    }
-}
-void cursor_move_start_line(Cursor *cursor, TextBuffer *buffer, Selection *selection)
-{
-    cursor->x = 0;
-
-    if (selection != NULL)
-    {
-        selection_update(selection, buffer, cursor);
-    }
-}
-
-void cursor_move_end_line(Cursor *cursor, TextBuffer *buffer, Selection *selection)
-{
-    cursor->x = get_line_length(buffer, cursor->y);
-    if (selection != NULL)
-    {
-        selection_update(selection, buffer, cursor);
-    }
-}
-void cursor_move_right(Cursor *cursor, TextBuffer *buffer, Selection *selection)
+void cursor_move_left(Context *ctx)
 {
 
-    cursor->x = MIN(get_line_length(buffer, cursor->y), cursor->x + 1);
-    if (selection != NULL)
+    ctx->cursor.x = MAX(0, ctx->cursor.x - 1);
+    if (ctx->selection.is_active)
     {
-        selection_update(selection, buffer, cursor);
+        selection_update(ctx);
+    }
+}
+void cursor_move_start_line(Context *ctx)
+{
+    ctx->cursor.x = 0;
+
+    if (ctx->selection.is_active)
+    {
+        selection_update(ctx);
+    }
+}
+
+void cursor_move_end_line(Context *ctx)
+{
+    ctx->cursor.x = get_line_length(&ctx->buffer, ctx->cursor.y);
+    if (ctx->selection.is_active)
+    {
+        selection_update(ctx);
+    }
+}
+void cursor_move_right(Context *ctx)
+{
+
+    ctx->cursor.x = MIN(get_line_length(&ctx->buffer, ctx->cursor.y), ctx->cursor.x + 1);
+    if (ctx->selection.is_active)
+    {
+        selection_update(ctx);
     }
 }
 void render_cursor(SDL_Renderer *renderer, Cursor *cursor, SDL_FRect offset)
