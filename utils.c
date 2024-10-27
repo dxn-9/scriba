@@ -2,7 +2,17 @@
 #include "SDL3_ttf/SDL_ttf.h"
 
 #include "utils.h"
+#include "text.h"
 
+SDL_FRect selection_rect(float x, float y, float w)
+{
+    SDL_FRect rect = {
+        .x = x * char_w_,
+        .y = y * char_h_,
+        .w = w * char_w_,
+        .h = char_h_};
+    return rect;
+}
 // TODO: I can probably do a bitmask to see the size of the next character. For now i'll do it the inefficent way.
 size_t utf8_char_bytes_at(TextBuffer *buffer, size_t position)
 {

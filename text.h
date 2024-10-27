@@ -23,11 +23,22 @@ typedef struct
 
 typedef struct TextBuffer
 {
-    Vector text;    // Contains the text bytes
-    Vector lines;   // Contains the indices of the line breaks.
-    int characters; // Actual characters, (utf 8)
+    Vector text;  // Contains the text bytes
+    Vector lines; // Contains the indices of the line breaks.
 
 } TextBuffer;
+
+typedef struct Selection
+{
+    bool is_active;
+    size_t buffer_start; // Positions in the buffer
+    size_t buffer_end;   // Positions in the buffer
+    size_t start_x;      // Screen space start x
+    size_t start_y;      // Screen space start y
+    size_t end_x;        // Screen space end x
+    size_t end_y;        // Screen space end y
+
+} Selection;
 
 extern TTF_Font *font;
 extern const char *initial_text;
@@ -40,8 +51,14 @@ void text_remove_char(TextBuffer *buffer, Cursor *cursor);
 void text_newline(TextBuffer *buffer, Cursor *cursor);
 void text_add(TextBuffer *buffer, Cursor *cursor, const char *str);
 int get_line_length(TextBuffer *buffer, int line);
-void render_text(SDL_Renderer *renderer, TextBuffer *text);
 void clean_text(TextBuffer *buffer);
 bool init_text();
+
+Selection selection_new(TextBuffer *buffer, Cursor *cursor);
+Selection selection_end(TextBuffer *buffer, Cursor *cursor);
+void selection_update(Selection *selection, TextBuffer *buffer, Cursor *cursor);
+
+void render_text(SDL_Renderer *renderer, TextBuffer *text, SDL_FRect view_offset);
+void render_selection(SDL_Renderer *renderer, Selection *selection, TextBuffer *text, SDL_FRect view_offset);
 
 #endif // _TEXT_H

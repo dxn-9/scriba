@@ -8,6 +8,9 @@
 #include "clock.h"
 #include "cursor.h"
 
+#define HORIZONTAL_VIEW_OFFSET 2
+#define VERTICAL_VIEW_OFFSET 2
+
 SDL_Window *win = NULL;
 SDL_Renderer *renderer;
 
@@ -15,10 +18,15 @@ typedef struct
 {
     Cursor cursor;
     TextBuffer main_buffer;
+    Selection selection;
 } Context;
 
 bool loop(Context *context)
 {
+    TextBuffer *main_buffer = &context->main_buffer;
+    Cursor *cursor = &context->cursor;
+    Selection *selection = &context->selection;
+
     SDL_SetRenderDrawColor(renderer, 0, 255, 255, 255);
     SDL_RenderClear(renderer);
 
@@ -26,11 +34,12 @@ bool loop(Context *context)
 
     while (SDL_PollEvent(&e) != 0)
     {
+        printf("Event! %i - %i \n", e.type, e.key.down);
         switch (e.type)
         {
         case SDL_EVENT_TEXT_INPUT:
-            text_add(&context->main_buffer, &context->cursor, e.text.text);
-            cursor_move_right(&context->cursor, &context->main_buffer);
+            text_add(main_buffer, cursor, e.text.text);
+            cursor_move_right(cursor, main_buffer, selection);
             break;
         case SDL_EVENT_QUIT:
             return false;
@@ -38,39 +47,60 @@ bool loop(Context *context)
             switch (e.key.key)
             {
             case SDLK_LEFT:
-                cursor_move_left(&context->cursor, &context->main_buffer);
+                cursor_move_left(cursor, main_buffer, selection);
                 break;
             case SDLK_UP:
-                cursor_move_up(&context->cursor, &context->main_buffer);
+                cursor_move_up(cursor, main_buffer, selection);
                 break;
             case SDLK_RIGHT:
-                cursor_move_right(&context->cursor, &context->main_buffer);
+                cursor_move_right(cursor, main_buffer, selection);
                 break;
             case SDLK_R:
                 printf("TextBuffer: \n");
-                debug_vec(&context->main_buffer.text);
+                debug_vec(&main_buffer->text);
                 printf("LinesBuffer: \n");
-                debug_vec(&context->main_buffer.lines);
+                debug_vec(&main_buffer->lines);
                 break;
             case SDLK_DOWN:
-                cursor_move_down(&context->cursor, &context->main_buffer);
+                cursor_move_down(cursor, main_buffer, selection);
                 break;
             case SDLK_RETURN:
-                text_newline(&context->main_buffer, &context->cursor);
+                text_newline(main_buffer, cursor);
+                break;
+            case SDLK_LSHIFT:
+                context->selection = selection_new(main_buffer, cursor);
                 break;
             case SDLK_BACKSPACE:
-            {
-                text_remove_char(&context->main_buffer, &context->cursor);
-            }
-            break;
+                text_remove_char(main_buffer, cursor);
+                break;
             case SDLK_ESCAPE:
                 return false;
             }
+            break;
+        case SDL_EVENT_KEY_UP:
+            switch (e.key.key)
+            {
+            case SDLK_LSHIFT:
+                context->selection = selection_end(main_buffer, cursor);
+                break;
+            }
         }
     }
+    int win_w, win_h;
+    SDL_GetWindowSizeInPixels(win, &win_w, &win_h);
 
-    render_text(renderer, &context->main_buffer);
-    render_cursor(renderer, &context->cursor);
+    int cursor_nums_x = win_w / context->cursor.w;
+    int cursor_nums_y = win_h / context->cursor.h;
+    // This calculates how much the view should shift to the left and down. If the cursor is within the
+    // bounds of the normal view it will be 0, or else it will be a multiple of cursor->w (how many chars are out of the view). Same applies for y coords.
+    SDL_FRect offset = {
+        .x = MIN(0, (cursor_nums_x - (context->cursor.x + HORIZONTAL_VIEW_OFFSET)) * context->cursor.w),
+        .y = MIN(0, (cursor_nums_y - (context->cursor.y + VERTICAL_VIEW_OFFSET)) * context->cursor.h),
+    };
+
+    render_selection(renderer, &context->selection, main_buffer, (SDL_FRect){});
+    render_text(renderer, main_buffer, offset);
+    render_cursor(renderer, cursor, offset);
 
     SDL_RenderPresent(renderer);
 
@@ -138,7 +168,6 @@ int main(int argc, char **argv)
     Cursor cursor = new_cursor(0, 0, char_w_, char_h_);
     context.cursor = cursor;
     context.main_buffer = text_new(&cursor, initial_text);
-
     while (loop(&context))
     {
         int now = SDL_GetTicks();

@@ -1,4 +1,3 @@
-
 #include "cursor.h"
 #include "text.h"
 #include "clock.h"
@@ -36,34 +35,61 @@ int get_buffer_index(Cursor *cursor, TextBuffer *buffer)
 
     return line->bytes_offset + bytes_until_end - strlen(*ptr);
 }
-void cursor_move_up(Cursor *cursor, TextBuffer *buffer)
+void cursor_move_up(Cursor *cursor, TextBuffer *buffer, Selection *selection)
 {
     cursor->y = MAX(0, cursor->y - 1);
     cursor->x = MIN(cursor->x, get_line_length(buffer, cursor->y));
+
+    if (selection != NULL)
+    {
+        selection_update(selection, buffer, cursor);
+    }
 }
-void cursor_move_down(Cursor *cursor, TextBuffer *buffer)
+void cursor_move_down(Cursor *cursor, TextBuffer *buffer, Selection *selection)
 {
     cursor->y = MIN(cursor->y + 1, buffer->lines.length - 1);
     cursor->x = MIN(get_line_length(buffer, cursor->y), cursor->x);
+    if (selection != NULL)
+    {
+        selection_update(selection, buffer, cursor);
+    }
 }
-void cursor_move_left(Cursor *cursor, TextBuffer *buffer)
+void cursor_move_left(Cursor *cursor, TextBuffer *buffer, Selection *selection)
 {
     cursor->x = MAX(0, cursor->x - 1);
+    if (selection != NULL)
+    {
+        selection_update(selection, buffer, cursor);
+    }
 }
-void cursor_move_start_line(Cursor *cursor, TextBuffer *buffer)
+void cursor_move_start_line(Cursor *cursor, TextBuffer *buffer, Selection *selection)
 {
     cursor->x = 0;
+
+    if (selection != NULL)
+    {
+        selection_update(selection, buffer, cursor);
+    }
 }
 
-void cursor_move_end_line(Cursor *cursor, TextBuffer *buffer)
+void cursor_move_end_line(Cursor *cursor, TextBuffer *buffer, Selection *selection)
 {
     cursor->x = get_line_length(buffer, cursor->y);
+    if (selection != NULL)
+    {
+        selection_update(selection, buffer, cursor);
+    }
 }
-void cursor_move_right(Cursor *cursor, TextBuffer *buffer)
+void cursor_move_right(Cursor *cursor, TextBuffer *buffer, Selection *selection)
 {
+
     cursor->x = MIN(get_line_length(buffer, cursor->y), cursor->x + 1);
+    if (selection != NULL)
+    {
+        selection_update(selection, buffer, cursor);
+    }
 }
-void render_cursor(SDL_Renderer *renderer, Cursor *cursor)
+void render_cursor(SDL_Renderer *renderer, Cursor *cursor, SDL_FRect offset)
 {
     Uint8 r, g, b, a;
     SDL_GetRenderDrawColor(renderer, &r, &g, &b, &a);
@@ -71,8 +97,9 @@ void render_cursor(SDL_Renderer *renderer, Cursor *cursor)
     bool is_odd = (appClock.time / RECTANGLE_BLINK) % 2 == 0;
     SDL_Color color = is_odd ? red : blue;
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
-    // printf("CursorX: %i\n", cursor->x);
-    SDL_FRect rect = {cursor->x * cursor->w, cursor->y * cursor->h, cursor->w, cursor->h};
+    int chars_out_of_view_x = -offset.x / cursor->w;
+    int chars_out_of_view_y = -offset.y / cursor->h;
+    SDL_FRect rect = {(cursor->x - chars_out_of_view_x) * cursor->w, (cursor->y - chars_out_of_view_y) * cursor->h, cursor->w, cursor->h};
     SDL_RenderFillRect(renderer, &rect);
     SDL_SetRenderDrawColor(renderer, r, g, b, a);
 }

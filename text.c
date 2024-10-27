@@ -7,7 +7,7 @@
 int char_w_, char_h_;
 TTF_Font *font;
 // const char *initial_text = "ắ";
-const char *initial_text = "ắ\nheắắắllo!ắ";
+const char *initial_text = "ắ\nheắắe\neee\neeeee\nee\neee";
 
 void recompute_lines(TextBuffer *buffer)
 {
@@ -91,8 +91,8 @@ void text_remove_char(TextBuffer *buffer, Cursor *cursor)
 
     if (is_newline)
     {
-        cursor_move_up(cursor, buffer);
-        cursor_move_end_line(cursor, buffer);
+        cursor_move_up(cursor, buffer, NULL);
+        cursor_move_end_line(cursor, buffer, NULL);
         vector_remove(&buffer->text, index);
     }
     else
@@ -104,7 +104,7 @@ void text_remove_char(TextBuffer *buffer, Cursor *cursor)
             .end = index + char_size,
         };
         vector_remove_range(&buffer->text, range);
-        cursor_move_left(cursor, buffer);
+        cursor_move_left(cursor, buffer, NULL);
     }
 
     recompute_lines(buffer);
@@ -126,8 +126,8 @@ void text_newline(TextBuffer *buffer, Cursor *cursor)
 {
     text_add(buffer, cursor, "\n");
     recompute_lines(buffer);
-    cursor_move_down(cursor, buffer);
-    cursor_move_start_line(cursor, buffer);
+    cursor_move_down(cursor, buffer, NULL);
+    cursor_move_start_line(cursor, buffer, NULL);
 }
 
 void text_add(TextBuffer *buffer, Cursor *cursor, const char *str)
@@ -145,7 +145,7 @@ void text_add(TextBuffer *buffer, Cursor *cursor, const char *str)
 
 // FIXME: this is bad for performance. we're basically creating a new texture every frame
 // for each line. It should be cached.
-void render_text(SDL_Renderer *renderer, TextBuffer *buffer)
+void render_text(SDL_Renderer *renderer, TextBuffer *buffer, SDL_FRect view_offset)
 {
     Vector text = buffer->text;
 
@@ -184,8 +184,10 @@ void render_text(SDL_Renderer *renderer, TextBuffer *buffer)
                 printf("QueryTexture Failed %s", SDL_GetError());
                 exit(1);
             }
+            SDL_FRect dest_rectangle = {
+                view_offset.x, i * texH + view_offset.y, texW, texH};
 
-            if (!SDL_RenderTexture(renderer, texture, NULL, &(SDL_FRect){0, i * texH, texW, texH}))
+            if (!SDL_RenderTexture(renderer, texture, NULL, &dest_rectangle))
             {
                 printf("RenderCopy failed: %s", SDL_GetError());
                 exit(1);
@@ -195,6 +197,61 @@ void render_text(SDL_Renderer *renderer, TextBuffer *buffer)
             SDL_DestroyTexture(texture);
         }
     }
+}
+
+void render_selection(SDL_Renderer *renderer, Selection *selection, TextBuffer *buffer, SDL_FRect view_offset)
+{
+    if (!selection->is_active)
+        return;
+    Uint8 r, g, b, a;
+    SDL_GetRenderDrawColor(renderer, &r, &g, &b, &a);
+    SDL_Color color = {
+        .r = 211, .g = 164, .b = 227};
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+    Vector rects = vector_new(sizeof(SDL_FRect));
+
+    int y_diff = selection->end_y - selection->start_y;
+    SDL_FRect rect;
+    if (y_diff == 0)
+    {
+        rect = selection_rect(selection->start_x, selection->start_y, ((float)selection->end_x - selection->start_x));
+        vector_push(&rects, &rect);
+    }
+    else if (y_diff < 0)
+    {
+        rect = selection_rect(0, selection->start_y, selection->start_x);
+        vector_push(&rects, &rect);
+        for (int i = selection->end_y; i < selection->start_y; ++i)
+        {
+            rect = selection_rect(0, i, MAX(get_line_length(buffer, i), 1));
+            vector_push(&rects, &rect);
+        }
+
+        rect = selection_rect(0, selection->end_y, selection->end_x);
+        vector_push(&rects, &rect);
+    }
+    else
+    {
+        // y_diff is positive >
+        rect = selection_rect(selection->start_x, selection->start_y, MAX(get_line_length(buffer, selection->start_y), 1));
+        vector_push(&rects, &rect);
+
+        for (int i = selection->start_y + 1; i < selection->end_y; ++i)
+        {
+            rect = selection_rect(0, i, MAX(get_line_length(buffer, i), 1));
+            vector_push(&rects, &rect);
+        }
+        rect = selection_rect(0, selection->end_y, selection->end_x);
+        vector_push(&rects, &rect);
+    }
+
+    for (int i = 0; i < rects.length; ++i)
+    {
+        SDL_FRect *rect = &((SDL_FRect *)rects.data)[i];
+        SDL_RenderFillRect(renderer, rect);
+    }
+    SDL_SetRenderDrawColor(renderer, r, g, b, a);
+    vector_free(&rects);
 }
 
 void clean_text(TextBuffer *buffer)
@@ -217,4 +274,40 @@ bool init_text()
         return false;
     }
     return true;
+}
+
+Selection selection_new(TextBuffer *buffer, Cursor *cursor)
+{
+
+    size_t buffer_start = get_buffer_index(cursor, buffer);
+    printf("StartingSelection: %i\n", cursor->y);
+
+    Selection selection = {
+        .buffer_start = buffer_start,
+        .buffer_end = buffer_start,
+        .start_x = cursor->x,
+        .start_y = cursor->y,
+        .end_x = cursor->x,
+        .end_y = cursor->y,
+        .is_active = true};
+
+    return selection;
+}
+
+Selection selection_end(TextBuffer *buffer, Cursor *cursor)
+{
+    Selection selection = {
+        .is_active = false};
+    return selection;
+}
+
+void selection_update(Selection *selection, TextBuffer *buffer, Cursor *cursor)
+{
+    if (selection->is_active)
+    {
+        size_t index = get_buffer_index(cursor, buffer);
+        selection->end_x = cursor->x;
+        selection->end_y = cursor->y;
+        selection->buffer_end = index;
+    }
 }
