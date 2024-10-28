@@ -59,6 +59,7 @@ void recompute_lines(TextBuffer *buffer)
 
 TextBuffer text_new(Cursor *cursor, const char *initial_str)
 {
+
     TextBuffer buffer = {
         .text = vector_new(sizeof(char)),
         .lines = vector_new(sizeof(Line))};
@@ -125,25 +126,26 @@ int get_line_length(TextBuffer *buffer, int line)
 }
 void text_newline(Context *ctx)
 {
-    if (ctx->selection.is_active)
-        return;
-    text_add(&ctx->buffer, &ctx->cursor, "\n");
-    recompute_lines(&ctx->buffer);
+    text_add(ctx, "\n");
     cursor_move_down(ctx);
     cursor_move_start_line(ctx);
 }
 
-void text_add(TextBuffer *buffer, Cursor *cursor, const char *str)
+void text_add(Context *ctx, const char *str)
 {
+    if (ctx->selection.is_active)
+    {
+        selection_delete(ctx);
+    }
     size_t len = strlen(str);
-    int buffer_index = get_buffer_index(cursor, buffer);
+    int buffer_index = get_buffer_index(&ctx->cursor, &ctx->buffer);
     for (int i = 0; i < len; ++i)
     {
-        vector_add(&buffer->text, buffer_index + i, &str[i]);
+        vector_add(&ctx->buffer.text, buffer_index + i, &str[i]);
     }
-    recompute_lines(buffer);
-    debug_vec(&buffer->text);
-    debug_vec(&buffer->lines);
+    recompute_lines(&ctx->buffer);
+    debug_vec(&ctx->buffer.text);
+    debug_vec(&ctx->buffer.lines);
 }
 
 // FIXME: this is bad for performance. we're basically creating a new texture every frame
@@ -305,11 +307,39 @@ Selection selection_new(TextBuffer *buffer, Cursor *cursor)
     return selection;
 }
 
-Selection selection_end(TextBuffer *buffer, Cursor *cursor)
+void selection_cancel(Context *ctx)
 {
-    Selection selection = {
-        .is_active = false};
-    return selection;
+    ctx->selection.is_active = false;
+}
+
+void selection_delete(Context *ctx)
+{
+
+    Selection *selection = &ctx->selection;
+    size_t start = selection->buffer_start;
+    size_t end = selection->buffer_end;
+
+    // Swap variables. Smaller go first.
+    if (end < start)
+    {
+        size_t t = end;
+        size_t t_view_x = selection->end_x;
+        size_t t_view_y = selection->end_y;
+
+        end = start;
+        start = t;
+        selection->end_x = selection->start_x;
+        selection->end_y = selection->start_y;
+        selection->start_x = t_view_x;
+        selection->start_y = t_view_y;
+    }
+
+    Range range = {.start = start, .end = end};
+    vector_remove_range(&ctx->buffer.text, range);
+    recompute_lines(&ctx->buffer);
+    ctx->cursor.x = ctx->selection.start_x;
+    ctx->cursor.y = ctx->selection.start_y;
+    selection_cancel(ctx);
 }
 
 void selection_update(Context *ctx)

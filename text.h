@@ -21,6 +21,16 @@ typedef struct
     size_t bytes_offset; // bytes before start
 } Line;
 
+// enum SelectAction
+// {
+//     Nothing,
+//     CancelSelection,
+//     Delete,
+//     Replace,
+//     Move,
+
+// } SelectAction;
+
 typedef struct TextBuffer
 {
     Vector text;  // Contains the text bytes
@@ -51,13 +61,14 @@ extern int char_h_;
 TextBuffer text_new(Cursor *cursor, const char *initialStr);
 void text_remove_char(Context *ctx);
 void text_newline(Context *ctx);
-void text_add(TextBuffer *buffer, Cursor *cursor, const char *str);
+void text_add(Context *ctx, const char *str);
 int get_line_length(TextBuffer *buffer, int line);
 void clean_text(TextBuffer *buffer);
 bool init_text();
 
 Selection selection_new(TextBuffer *buffer, Cursor *cursor);
-Selection selection_end(TextBuffer *buffer, Cursor *cursor);
+void selection_cancel(Context *ctx);
+void selection_delete(Context *ctx);
 void selection_update(Context *ctx);
 
 void render_text(SDL_Renderer *renderer, TextBuffer *text, SDL_FRect view_offset);

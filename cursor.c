@@ -39,7 +39,6 @@ void cursor_move_up(Context *ctx)
 {
     ctx->cursor.y = MAX(0, ctx->cursor.y - 1);
     ctx->cursor.x = MIN(ctx->cursor.x, get_line_length(&ctx->buffer, ctx->cursor.y));
-
     if (ctx->selection.is_active)
     {
         selection_update(ctx);
@@ -83,8 +82,8 @@ void cursor_move_end_line(Context *ctx)
 }
 void cursor_move_right(Context *ctx)
 {
-
     ctx->cursor.x = MIN(get_line_length(&ctx->buffer, ctx->cursor.y), ctx->cursor.x + 1);
+
     if (ctx->selection.is_active)
     {
         selection_update(ctx);

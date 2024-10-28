@@ -51,8 +51,9 @@ bool loop(Context *context)
         switch (e.type)
         {
         case SDL_EVENT_TEXT_INPUT:
-            text_add(buffer, cursor, e.text.text);
+            text_add(context, e.text.text);
             cursor_move_right(context);
+
             break;
         case SDL_EVENT_QUIT:
             return false;
@@ -63,21 +64,37 @@ bool loop(Context *context)
                 if (e.key.mod == SDL_KMOD_LSHIFT && !selection->is_active)
                     context->selection = selection_new(buffer, cursor);
                 cursor_move_left(context);
+                if (!(e.key.mod == SDL_KMOD_LSHIFT) && selection->is_active)
+                {
+                    selection_cancel(context);
+                }
                 break;
             case SDLK_UP:
                 if (e.key.mod == SDL_KMOD_LSHIFT && !selection->is_active)
                     context->selection = selection_new(buffer, cursor);
                 cursor_move_up(context);
+                if (!(e.key.mod == SDL_KMOD_LSHIFT) && selection->is_active)
+                {
+                    selection_cancel(context);
+                }
                 break;
             case SDLK_RIGHT:
                 if (e.key.mod == SDL_KMOD_LSHIFT && !selection->is_active)
                     context->selection = selection_new(buffer, cursor);
                 cursor_move_right(context);
+                if (!(e.key.mod == SDL_KMOD_LSHIFT) && selection->is_active)
+                {
+                    selection_cancel(context);
+                }
                 break;
             case SDLK_DOWN:
                 if (e.key.mod == SDL_KMOD_LSHIFT && !selection->is_active)
                     context->selection = selection_new(buffer, cursor);
                 cursor_move_down(context);
+                if (!(e.key.mod == SDL_KMOD_LSHIFT) && selection->is_active)
+                {
+                    selection_cancel(context);
+                }
                 break;
             case SDLK_S:
                 if (e.key.mod == SDL_KMOD_LGUI)
@@ -96,21 +113,22 @@ bool loop(Context *context)
                 text_newline(context);
                 break;
             case SDLK_BACKSPACE:
-                text_remove_char(context);
+                if (!(e.key.mod == SDL_KMOD_LSHIFT) && selection->is_active)
+                {
+                    selection_delete(context);
+                }
+                else
+                {
+                    text_remove_char(context);
+                }
                 break;
             case SDLK_ESCAPE:
                 return false;
             }
             break;
-        case SDL_EVENT_KEY_UP:
-            switch (e.key.key)
-            {
-            case SDLK_LSHIFT:
-                context->selection = selection_end(buffer, cursor);
-                break;
-            }
         }
     }
+
     int win_w, win_h;
     SDL_GetWindowSizeInPixels(win, &win_w, &win_h);
 
