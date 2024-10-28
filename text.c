@@ -6,6 +6,7 @@
 #include "utils.h"
 int char_w_, char_h_;
 TTF_Font *font;
+TTF_Font *sm_font;
 // const char *initial_text = "ắ";
 const char *initial_text = "ắ\nheắắe\neee\neeeee\nee\neee";
 
@@ -150,7 +151,7 @@ void text_add(Context *ctx, const char *str)
 
 // FIXME: this is bad for performance. we're basically creating a new texture every frame
 // for each line. It should be cached.
-void render_text(SDL_Renderer *renderer, TextBuffer *buffer, SDL_FRect view_offset)
+void render_buffer(SDL_Renderer *renderer, TextBuffer *buffer, SDL_FRect view_offset)
 {
     Vector text = buffer->text;
 
@@ -229,7 +230,6 @@ void render_selection(SDL_Renderer *renderer, Selection *selection, TextBuffer *
         vector_push(&rects, &rect);
         for (int i = selection->end_y + 1; i < selection->start_y; ++i)
         {
-            printf("Running!\n");
             rect = selection_rect(0, i, MAX(get_line_length(buffer, i), 1), &view_offset);
             vector_push(&rects, &rect);
         }
@@ -289,22 +289,48 @@ bool init_text()
     return true;
 }
 
-Selection selection_new(TextBuffer *buffer, Cursor *cursor)
+void handle_paste(Context *ctx)
 {
+    char *text = SDL_GetClipboardText();
+    printf("text: %s\n", text);
+    if (strcmp(text, "") == 0)
+    {
+        printf("ClipboardPaste::%s\n", SDL_GetError());
+        free(text);
+        return;
+    }
+    text_add(ctx, text);
+    free(text);
+}
+void handle_copy(Context *ctx)
+{
+    if (!ctx->selection.is_active)
+        return;
+    order_selection(&ctx->selection);
+    int selection_size = ctx->selection.buffer_end - ctx->selection.buffer_start;
+    char *text = malloc(selection_size);
+    memcpy(text, (char *)ctx->buffer.text.data + ctx->selection.buffer_start, selection_size);
 
-    size_t buffer_start = get_buffer_index(cursor, buffer);
-    printf("StartingSelection: %i\n", cursor->y);
+    if (!SDL_SetClipboardText(text))
+    {
+        printf("ClipboardCopy::%s\n", SDL_GetError());
+    }
+    free(text);
+}
 
-    Selection selection = {
-        .buffer_start = buffer_start,
-        .buffer_end = buffer_start,
-        .start_x = cursor->x,
-        .start_y = cursor->y,
-        .end_x = cursor->x,
-        .end_y = cursor->y,
-        .is_active = true};
+void selection_start(Context *ctx)
+{
+    size_t buffer_start = get_buffer_index(&ctx->cursor, &ctx->buffer);
+    printf("StartingSelection: %i\n", ctx->cursor.y);
+    Selection *selection = &ctx->selection;
 
-    return selection;
+    selection->buffer_start = buffer_start;
+    selection->buffer_end = buffer_start;
+    selection->start_x = ctx->cursor.x;
+    selection->start_y = ctx->cursor.y;
+    selection->end_x = ctx->cursor.x;
+    selection->end_y = ctx->cursor.y;
+    selection->is_active = true;
 }
 
 void selection_cancel(Context *ctx)
@@ -316,29 +342,17 @@ void selection_delete(Context *ctx)
 {
 
     Selection *selection = &ctx->selection;
+
+    order_selection(selection);
+
     size_t start = selection->buffer_start;
     size_t end = selection->buffer_end;
-
-    // Swap variables. Smaller go first.
-    if (end < start)
-    {
-        size_t t = end;
-        size_t t_view_x = selection->end_x;
-        size_t t_view_y = selection->end_y;
-
-        end = start;
-        start = t;
-        selection->end_x = selection->start_x;
-        selection->end_y = selection->start_y;
-        selection->start_x = t_view_x;
-        selection->start_y = t_view_y;
-    }
 
     Range range = {.start = start, .end = end};
     vector_remove_range(&ctx->buffer.text, range);
     recompute_lines(&ctx->buffer);
-    ctx->cursor.x = ctx->selection.start_x;
-    ctx->cursor.y = ctx->selection.start_y;
+    ctx->cursor.x = selection->start_x;
+    ctx->cursor.y = selection->start_y;
     selection_cancel(ctx);
 }
 

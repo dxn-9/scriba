@@ -2,18 +2,20 @@
 #include <SDL3_ttf/SDL_ttf.h>
 #include <sys/stat.h>
 #include <errno.h>
-#include "text.h"
-
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "bottom_bar.h"
+#include "text.h"
 #include "clock.h"
 #include "cursor.h"
 #include "utils.h"
 
 #define HORIZONTAL_VIEW_OFFSET 2
 #define VERTICAL_VIEW_OFFSET 2
+#define FPS_SAMPLE_SIZE 60
 
 SDL_Window *win = NULL;
 SDL_Renderer *renderer;
@@ -47,7 +49,7 @@ bool loop(Context *context)
 
     while (SDL_PollEvent(&e) != 0)
     {
-        printf("Event! %i - %i \n", e.type, e.key.down);
+        // printf("Event! %i - %i \n", e.type, e.key.down);
         switch (e.type)
         {
         case SDL_EVENT_TEXT_INPUT:
@@ -62,7 +64,7 @@ bool loop(Context *context)
             {
             case SDLK_LEFT:
                 if (e.key.mod == SDL_KMOD_LSHIFT && !selection->is_active)
-                    context->selection = selection_new(buffer, cursor);
+                    selection_start(context);
                 cursor_move_left(context);
                 if (!(e.key.mod == SDL_KMOD_LSHIFT) && selection->is_active)
                 {
@@ -71,7 +73,7 @@ bool loop(Context *context)
                 break;
             case SDLK_UP:
                 if (e.key.mod == SDL_KMOD_LSHIFT && !selection->is_active)
-                    context->selection = selection_new(buffer, cursor);
+                    selection_start(context);
                 cursor_move_up(context);
                 if (!(e.key.mod == SDL_KMOD_LSHIFT) && selection->is_active)
                 {
@@ -80,7 +82,7 @@ bool loop(Context *context)
                 break;
             case SDLK_RIGHT:
                 if (e.key.mod == SDL_KMOD_LSHIFT && !selection->is_active)
-                    context->selection = selection_new(buffer, cursor);
+                    selection_start(context);
                 cursor_move_right(context);
                 if (!(e.key.mod == SDL_KMOD_LSHIFT) && selection->is_active)
                 {
@@ -89,7 +91,7 @@ bool loop(Context *context)
                 break;
             case SDLK_DOWN:
                 if (e.key.mod == SDL_KMOD_LSHIFT && !selection->is_active)
-                    context->selection = selection_new(buffer, cursor);
+                    selection_start(context);
                 cursor_move_down(context);
                 if (!(e.key.mod == SDL_KMOD_LSHIFT) && selection->is_active)
                 {
@@ -101,6 +103,18 @@ bool loop(Context *context)
                 {
                     printf("Saving!!\n");
                     save(context);
+                }
+                break;
+            case SDLK_V:
+                if (e.key.mod == SDL_KMOD_LGUI)
+                {
+                    handle_paste(context);
+                }
+                break;
+            case SDLK_C:
+                if (e.key.mod == SDL_KMOD_LGUI)
+                {
+                    handle_copy(context);
                 }
                 break;
             case SDLK_R:
@@ -142,8 +156,9 @@ bool loop(Context *context)
     };
 
     render_selection(renderer, &context->selection, buffer, offset);
-    render_text(renderer, buffer, offset);
+    render_buffer(renderer, buffer, offset);
     render_cursor(renderer, cursor, offset);
+    render_bottom_bar(renderer, win_w, win_h);
 
     SDL_RenderPresent(renderer);
 
@@ -185,7 +200,7 @@ bool init()
 
     // Start sending SDL_TextInput events
     SDL_StartTextInput(win);
-    appClock.time = SDL_GetTicks();
+    app_clock.time = SDL_GetTicks();
 
     return true;
 }
@@ -245,17 +260,38 @@ int main(int argc, char **argv)
 
         return 1;
     }
-    Cursor cursor = new_cursor(0, 0, char_w_, char_h_);
     context.file_name = file_name;
-    context.cursor = cursor;
-    context.buffer = text_new(&cursor, data);
+    context.cursor = new_cursor(0, 0, char_w_, char_h_);
+    context.buffer = text_new(&context.cursor, data);
     context.selection = (Selection){.is_active = false};
+
+    bottom_bar.cursor = &context.cursor;
+    bottom_bar.selection = &context.selection;
+
     free(data);
+
+    int fps_samples[FPS_SAMPLE_SIZE];
+    memset(fps_samples, 0, sizeof(fps_samples));
+    size_t frame_counter = 0;
     while (loop(&context))
     {
         int now = SDL_GetTicks();
-        appClock.delta_time = now - appClock.time;
-        appClock.time = now;
+        if (frame_counter % FPS_SAMPLE_SIZE == 0)
+        {
+            size_t tot_delta = 0;
+
+            for (int i = 0; i < FPS_SAMPLE_SIZE; ++i)
+            {
+                tot_delta += fps_samples[i];
+            }
+            bottom_bar.fps = 1000.0 / ((float)tot_delta / (float)FPS_SAMPLE_SIZE);
+        }
+
+        app_clock.delta_time = now - app_clock.time;
+        app_clock.time = now;
+
+        fps_samples[frame_counter % FPS_SAMPLE_SIZE] = app_clock.delta_time;
+        frame_counter++;
     }
 
     quit(&context);

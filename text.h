@@ -11,7 +11,8 @@
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MIN(x, y) (((x) > (y)) ? (y) : (x))
 #define DEFAULT_CAPACITY 16
-#define FONT_SIZE 24
+#define FONT_SIZE 18
+#define FONT_SIZE_SM 10
 
 typedef struct
 {
@@ -66,12 +67,15 @@ int get_line_length(TextBuffer *buffer, int line);
 void clean_text(TextBuffer *buffer);
 bool init_text();
 
-Selection selection_new(TextBuffer *buffer, Cursor *cursor);
+void handle_copy(Context *ctx);
+void handle_paste(Context *ctx);
+
 void selection_cancel(Context *ctx);
+void selection_start(Context *ctx);
 void selection_delete(Context *ctx);
 void selection_update(Context *ctx);
 
-void render_text(SDL_Renderer *renderer, TextBuffer *text, SDL_FRect view_offset);
+void render_buffer(SDL_Renderer *renderer, TextBuffer *text, SDL_FRect view_offset);
 void render_selection(SDL_Renderer *renderer, Selection *selection, TextBuffer *text, SDL_FRect view_offset);
 
 #endif // _TEXT_H

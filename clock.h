@@ -4,10 +4,10 @@
 
 typedef struct
 {
-    int time, delta_time;
+    int time, delta_time; // Time and delta time in milliseconds.
 } Clock;
 
 void update_clock();
-extern Clock appClock;
+extern Clock app_clock;
 
 #endif // _CLOCK_H
