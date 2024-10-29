@@ -106,15 +106,21 @@ bool loop(Context *context)
                 }
                 break;
             case SDLK_V:
-                if (e.key.mod == SDL_KMOD_LGUI)
+                if (e.key.mod & SDL_KMOD_GUI || e.key.mod & SDL_KMOD_CTRL)
                 {
                     handle_paste(context);
                 }
                 break;
             case SDLK_C:
-                if (e.key.mod == SDL_KMOD_LGUI)
+                if (e.key.mod & SDL_KMOD_GUI || e.key.mod & SDL_KMOD_CTRL)
                 {
                     handle_copy(context);
+                }
+                break;
+            case SDLK_X:
+                if (e.key.mod & SDL_KMOD_GUI || e.key.mod & SDL_KMOD_CTRL)
+                {
+                    handle_cut(context);
                 }
                 break;
             case SDLK_R:

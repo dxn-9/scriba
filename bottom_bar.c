@@ -15,7 +15,7 @@ void render_selection_bar(SDL_Renderer *renderer, int bar_y)
         return;
 
     char selection_str[20];
-    sprintf(selection_str, "c:%i", abs(bottom_bar.selection->end_x - bottom_bar.selection->start_x));
+    sprintf(selection_str, "c:%i", abs((int)bottom_bar.selection->end_x - bottom_bar.selection->start_x));
     render_text(renderer, selection_str, (SDL_Color){0, 255, 0, 255}, 200, bar_y);
 }
 void render_cursor_position(SDL_Renderer *renderer, int bar_y)

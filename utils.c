@@ -16,6 +16,7 @@ void order_selection(Selection *selection)
         selection->buffer_end = selection->buffer_start;
         selection->end_x = selection->start_x;
         selection->end_y = selection->start_y;
+
         selection->buffer_start = t;
         selection->start_x = t_x;
         selection->start_y = t_y;

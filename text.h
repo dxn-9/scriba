@@ -69,6 +69,7 @@ bool init_text();
 
 void handle_copy(Context *ctx);
 void handle_paste(Context *ctx);
+void handle_cut(Context *ctx);
 
 void selection_cancel(Context *ctx);
 void selection_start(Context *ctx);

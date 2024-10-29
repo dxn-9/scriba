@@ -23,6 +23,7 @@ void cursor_move_right(Context *ctx);
 void cursor_move_left(Context *ctx);
 void cursor_move_start_line(Context *ctx);
 void cursor_move_end_line(Context *ctx);
+void cursor_move_to_selection_start(Context *ctx);
 void render_cursor(SDL_Renderer *renderer, Cursor *cursor, SDL_FRect offset);
 Cursor new_cursor(int x, int y, int char_w, int char_h);
 

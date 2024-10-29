@@ -8,6 +8,11 @@
 SDL_Color red = {255, 0, 0, 255};
 SDL_Color blue = {0, 0, 255, 255};
 
+void cursor_move_to_selection_start(Context *ctx)
+{
+    ctx->cursor.x = ctx->selection.start_x;
+    ctx->cursor.y = ctx->selection.start_y;
+}
 // Gets the index of the character before the cursor
 int get_buffer_index_prev(Cursor *cursor, TextBuffer *buffer)
 {

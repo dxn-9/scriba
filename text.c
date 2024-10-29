@@ -302,6 +302,16 @@ void handle_paste(Context *ctx)
     text_add(ctx, text);
     free(text);
 }
+void handle_cut(Context *ctx)
+{
+    printf("HandleCut\n");
+    if (!ctx->selection.is_active)
+        return;
+
+    handle_copy(ctx);
+    ctx->selection.is_active = true;
+    selection_delete(ctx);
+}
 void handle_copy(Context *ctx)
 {
     if (!ctx->selection.is_active)
@@ -316,6 +326,7 @@ void handle_copy(Context *ctx)
         printf("ClipboardCopy::%s\n", SDL_GetError());
     }
     free(text);
+    selection_cancel(ctx);
 }
 
 void selection_start(Context *ctx)
@@ -340,7 +351,6 @@ void selection_cancel(Context *ctx)
 
 void selection_delete(Context *ctx)
 {
-
     Selection *selection = &ctx->selection;
 
     order_selection(selection);
@@ -351,8 +361,7 @@ void selection_delete(Context *ctx)
     Range range = {.start = start, .end = end};
     vector_remove_range(&ctx->buffer.text, range);
     recompute_lines(&ctx->buffer);
-    ctx->cursor.x = selection->start_x;
-    ctx->cursor.y = selection->start_y;
+    cursor_move_to_selection_start(ctx);
     selection_cancel(ctx);
 }
 
