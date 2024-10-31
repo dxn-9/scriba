@@ -4,7 +4,37 @@
 
 #include "utils.h"
 #include "text.h"
+#include "constants.h"
 
+SDL_FRect calculate_view_offset(SDL_FRect previous_offset, int win_w, int win_h, Cursor *cursor)
+{
+    int cursor_nums_x = win_w / cursor->w;
+    int cursor_nums_y = win_h / cursor->h;
+
+    int previous_offset_x = previous_offset.x / cursor->w;
+
+    int view_x =
+        (cursor->x + HORIZONTAL_VIEW_OFFSET);
+    int offset_x = (cursor_nums_x - view_x);
+
+    if (offset_x > previous_offset_x)
+    {
+        offset_x = previous_offset_x;
+    }
+    if (abs(previous_offset_x) + HORIZONTAL_VIEW_OFFSET < cursor->x)
+    {
+        offset_x = previous_offset_x - 1;
+    }
+    // printf("PreviousOffset: %i\n", previous_view_x);
+
+    // This calculates how much the view should shift to the left and down. If the cursor is within the
+    // bounds of the normal view it will be 0, or else it will be a multiple of cursor->w (how many chars are out of the view). Same applies for y coords.
+    SDL_FRect offset = {
+        .x = MIN(0, (offset_x * cursor->w)),
+        .y = MIN(0, (cursor_nums_y - (cursor->y + VERTICAL_VIEW_OFFSET)) * cursor->h),
+    };
+    return offset;
+}
 void order_selection(Selection *selection)
 {
     if (selection->buffer_end < selection->buffer_start)

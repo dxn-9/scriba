@@ -12,13 +12,11 @@
 #include "clock.h"
 #include "cursor.h"
 #include "utils.h"
-
-#define HORIZONTAL_VIEW_OFFSET 2
-#define VERTICAL_VIEW_OFFSET 2
-#define FPS_SAMPLE_SIZE 60
+#include "constants.h"
 
 SDL_Window *win = NULL;
 SDL_Renderer *renderer;
+SDL_FRect last_view_offset;
 
 void save(Context *ctx)
 {
@@ -152,14 +150,8 @@ bool loop(Context *context)
     int win_w, win_h;
     SDL_GetWindowSizeInPixels(win, &win_w, &win_h);
 
-    int cursor_nums_x = win_w / context->cursor.w;
-    int cursor_nums_y = win_h / context->cursor.h;
-    // This calculates how much the view should shift to the left and down. If the cursor is within the
-    // bounds of the normal view it will be 0, or else it will be a multiple of cursor->w (how many chars are out of the view). Same applies for y coords.
-    SDL_FRect offset = {
-        .x = MIN(0, (cursor_nums_x - (context->cursor.x + HORIZONTAL_VIEW_OFFSET)) * context->cursor.w),
-        .y = MIN(0, (cursor_nums_y - (context->cursor.y + VERTICAL_VIEW_OFFSET)) * context->cursor.h),
-    };
+    SDL_FRect offset = calculate_view_offset(last_view_offset, win_w, win_h, cursor);
+    last_view_offset = offset;
 
     render_selection(renderer, &context->selection, buffer, offset);
     render_buffer(renderer, buffer, offset);

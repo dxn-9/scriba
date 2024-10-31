@@ -14,6 +14,7 @@ typedef struct Context
 
 } Context;
 
+SDL_FRect calculate_view_offset(SDL_FRect previous_offset, int win_w, int win_h, Cursor *cursor);
 // Renders a null terminated string at the given position
 void render_text(SDL_Renderer *renderer, char *text, SDL_Color color, int x, int y);
 void render_fill_rectangle(SDL_Renderer *renderer, SDL_Color color, SDL_FRect rect);

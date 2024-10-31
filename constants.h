@@ -1,0 +1,8 @@
+#ifndef _CONSTANTS_H
+#define _CONSTANTS_H
+
+#define HORIZONTAL_VIEW_OFFSET 2
+#define VERTICAL_VIEW_OFFSET 2
+#define FPS_SAMPLE_SIZE 60
+
+#endif
