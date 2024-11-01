@@ -1,38 +1,64 @@
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #include "utils.h"
 #include "text.h"
 #include "constants.h"
 
+int calculate_view_whitespace(char *text, int size)
+{
+    int tabs_num = 0;
+
+    for (int i = 0; i < size; ++i)
+    {
+        if (text[i] == '\t')
+            tabs_num++;
+    }
+
+    return tabs_num * TABS_VIEW_SIZE;
+}
 SDL_FRect calculate_view_offset(SDL_FRect previous_offset, int win_w, int win_h, Cursor *cursor)
 {
+    SDL_FRect offset;
+
     int cursor_nums_x = win_w / cursor->w;
     int cursor_nums_y = win_h / cursor->h;
 
-    int previous_offset_x = previous_offset.x / cursor->w;
+    int previous_cursor_x = SDL_fabs(previous_offset.x / cursor->w);
+    int previous_cursor_y = SDL_fabs(previous_offset.y / cursor->h);
 
-    int view_x =
-        (cursor->x + HORIZONTAL_VIEW_OFFSET);
-    int offset_x = (cursor_nums_x - view_x);
-
-    if (offset_x > previous_offset_x)
+    // printf("previous_cursor_x: %i, %f, cursorx: %i , cursorNums: %i\n", previous_cursor_x, previous_offset.x, cursor->x, cursor_nums_x);
+    if ((cursor->view_x + HORIZONTAL_VIEW_OFFSET) > (cursor_nums_x + previous_cursor_x))
     {
-        offset_x = previous_offset_x;
+        // Shift the view to the right
+        offset.x = (cursor_nums_x - (cursor->view_x + HORIZONTAL_VIEW_OFFSET)) * cursor->w;
     }
-    if (abs(previous_offset_x) + HORIZONTAL_VIEW_OFFSET < cursor->x)
+    else if (MAX(cursor->view_x - HORIZONTAL_VIEW_OFFSET, 0) < (previous_cursor_x))
     {
-        offset_x = previous_offset_x - 1;
+        // Shift the view to the left. Note: cursor->x is never <0
+        offset.x = -(previous_cursor_x - 1) * cursor->w;
     }
-    // printf("PreviousOffset: %i\n", previous_view_x);
+    else
+    {
+        offset.x = previous_offset.x;
+    }
 
-    // This calculates how much the view should shift to the left and down. If the cursor is within the
-    // bounds of the normal view it will be 0, or else it will be a multiple of cursor->w (how many chars are out of the view). Same applies for y coords.
-    SDL_FRect offset = {
-        .x = MIN(0, (offset_x * cursor->w)),
-        .y = MIN(0, (cursor_nums_y - (cursor->y + VERTICAL_VIEW_OFFSET)) * cursor->h),
-    };
+    // Same handling as X just on the Y axis
+    if ((cursor->y + VERTICAL_VIEW_OFFSET) > (cursor_nums_y + previous_cursor_y))
+    {
+        offset.y = (cursor_nums_y - (cursor->y + VERTICAL_VIEW_OFFSET)) * cursor->h;
+    }
+    else if (MAX(cursor->y - VERTICAL_VIEW_OFFSET, 0) < previous_cursor_y)
+    {
+        offset.y = -(previous_cursor_y - 1) * cursor->h;
+    }
+    else
+    {
+        offset.y = previous_offset.y;
+    }
+
     return offset;
 }
 void order_selection(Selection *selection)
@@ -51,6 +77,15 @@ void order_selection(Selection *selection)
         selection->start_x = t_x;
         selection->start_y = t_y;
     }
+}
+void clear_selection_text(Selection *selection, TextBuffer *buffer, Cursor *cursor)
+{
+    order_selection(selection);
+    int selection_start_x = selection->start_x;
+    int selection_start_y = selection->start_y;
+    selection_delete(selection, buffer);
+    cursor_set_y(cursor, buffer, selection_start_y);
+    cursor_set_x(cursor, buffer, selection_start_x);
 }
 void render_text(SDL_Renderer *renderer, char *text, SDL_Color color, int x, int y)
 {

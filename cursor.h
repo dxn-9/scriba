@@ -12,19 +12,27 @@ typedef struct Context Context;
 typedef struct Cursor
 {
     int x, y;
-    int w, h; // Visual Representation
+    int w, h;   // Visual Representation
+    int view_x; // How much visually it's shifted to the right. This is useful for handling spaces and tabs.
+
 } Cursor;
 
 int get_buffer_index_prev(Cursor *cursor, TextBuffer *buffer);
 int get_buffer_index(Cursor *cursor, TextBuffer *buffer);
-void cursor_move_down(Context *ctx);
-void cursor_move_up(Context *ctx);
-void cursor_move_right(Context *ctx);
-void cursor_move_left(Context *ctx);
-void cursor_move_start_line(Context *ctx);
-void cursor_move_end_line(Context *ctx);
-void cursor_move_to_selection_start(Context *ctx);
+void cursor_update_view_x(Cursor *cursor, TextBuffer *buffer);
+void cursor_set_x(Cursor *cursor, TextBuffer *buffer, int value);
+void cursor_set_y(Cursor *cursor, TextBuffer *buffer, int value);
+void cursor_move_down(Cursor *cursor, TextBuffer *buffer);
+void cursor_move_up(Cursor *cursor, TextBuffer *buffer);
+void cursor_move_right(Cursor *cursor, TextBuffer *buffer);
+void cursor_move_left(Cursor *cursor, TextBuffer *buffer);
+void cursor_move_start_line(Cursor *cursor, TextBuffer *buffer);
+void cursor_move_end_line(Cursor *cursor, TextBuffer *buffer);
+void cursor_move_to_selection_start(Cursor *cursor, Selection *selection);
 void render_cursor(SDL_Renderer *renderer, Cursor *cursor, SDL_FRect offset);
+void cursor_set_from_buffer_index(Cursor *cursor, TextBuffer *buffer, int buffer_index);
+void debug_cursor(Cursor *cursor);
+Cursor copy_cursor(Cursor *cursor);
 Cursor new_cursor(int x, int y, int char_w, int char_h);
 
 #endif // _CURSOR_H

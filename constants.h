@@ -3,6 +3,8 @@
 
 #define HORIZONTAL_VIEW_OFFSET 2
 #define VERTICAL_VIEW_OFFSET 2
-#define FPS_SAMPLE_SIZE 60
+#define FPS_SAMPLE_SIZE 20
+#define TABS_VIEW_SIZE 4
+#define CURSOR_VIEW_SIZE 3
 
 #endif

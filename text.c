@@ -3,6 +3,7 @@
 #include <string.h>
 #include "cursor.h"
 #include "text.h"
+#include "constants.h"
 #include "utils.h"
 int char_w_, char_h_;
 TTF_Font *font;
@@ -66,7 +67,6 @@ TextBuffer text_new(Cursor *cursor, const char *initial_str)
         .lines = vector_new(sizeof(Line))};
 
     int pos = 0;
-    int line_start = 0;
     while (initial_str[pos] != '\0')
     {
         vector_push(&buffer.text, &initial_str[pos]);
@@ -78,10 +78,8 @@ TextBuffer text_new(Cursor *cursor, const char *initial_str)
     debug_vec(&buffer.lines);
     return buffer;
 }
-void text_remove_char(Context *ctx)
+void text_remove_char(TextBuffer *buffer, Cursor *cursor)
 {
-    TextBuffer *buffer = &ctx->buffer;
-    Cursor *cursor = &ctx->cursor;
     bool is_newline = false;
     int index = get_buffer_index_prev(cursor, buffer);
     char *text = (char *)buffer->text.data;
@@ -94,8 +92,8 @@ void text_remove_char(Context *ctx)
 
     if (is_newline)
     {
-        cursor_move_up(ctx);
-        cursor_move_end_line(ctx);
+        cursor_move_up(cursor, buffer);
+        cursor_move_end_line(cursor, buffer);
         vector_remove(&buffer->text, index);
     }
     else
@@ -107,46 +105,82 @@ void text_remove_char(Context *ctx)
             .end = index + char_size,
         };
         vector_remove_range(&buffer->text, range);
-        cursor_move_left(ctx);
+        cursor_move_left(cursor, buffer);
     }
 
     recompute_lines(buffer);
 }
+int get_line_view_length(TextBuffer *buffer, int line)
+{
+    SDL_assert(line < buffer->lines.length || line >= 0);
+
+    Line *data = get_line_at(buffer, line);
+    int white_space = calculate_view_whitespace((char *)buffer->text.data + data->bytes_offset, data->bytes);
+    int line_length = get_line_length(buffer, line);
+    int tabs_count = white_space / TABS_VIEW_SIZE; // TODO: if there are other whitespace sources, this doesnt work.
+
+    return line_length - tabs_count + white_space;
+}
+
 int get_line_length(TextBuffer *buffer, int line)
 {
-    Line *data = get_line_at(buffer, 0);
+    SDL_assert(line < buffer->lines.length || line >= 0);
 
-    if (line >= buffer->lines.length || line < 0)
-    {
-        printf("Warning: out of bound access attempt\n");
-        return -1;
-    }
+    Line *data = get_line_at(buffer, line);
 
     // Subtract 1 since we don't want to count newlines.
-    return data[line].end - data[line].start - 1;
-}
-void text_newline(Context *ctx)
-{
-    text_add(ctx, "\n");
-    cursor_move_down(ctx);
-    cursor_move_start_line(ctx);
+    return data->end - data->start - 1;
 }
 
-void text_add(Context *ctx, const char *str)
+int text_add(TextBuffer *buffer, Cursor *cursor, const char *str)
 {
-    if (ctx->selection.is_active)
-    {
-        selection_delete(ctx);
-    }
     size_t len = strlen(str);
-    int buffer_index = get_buffer_index(&ctx->cursor, &ctx->buffer);
+    int buffer_index = get_buffer_index(cursor, buffer);
     for (int i = 0; i < len; ++i)
     {
-        vector_add(&ctx->buffer.text, buffer_index + i, &str[i]);
+        vector_add(&buffer->text, buffer_index + i, &str[i]);
     }
-    recompute_lines(&ctx->buffer);
-    debug_vec(&ctx->buffer.text);
-    debug_vec(&ctx->buffer.lines);
+    recompute_lines(buffer);
+    debug_vec(&buffer->text);
+    debug_vec(&buffer->lines);
+    return buffer_index + len;
+}
+
+// Replaces special characters (such as \t) to other characters.
+// Returns a \0 terminated string.
+// The pointer returned should be freed.
+char *get_text_to_render(char *text, int size)
+{
+    int tabs = 0;
+    for (int i = 0; i < size; ++i)
+    {
+        if (text[i] == '\t')
+            tabs++;
+    }
+
+    size_t text_size = size + tabs * (TABS_VIEW_SIZE - 1) + 1;
+    char *result = calloc(text_size, sizeof(char));
+
+    int inserted_tabs = 0;
+
+    for (int i = 0; i < size; ++i)
+    {
+        int index = i + inserted_tabs * (TABS_VIEW_SIZE - 1);
+        if (text[i] == '\t')
+        {
+            // Insert visually 4 spaces instead of 1 tab
+            for (int j = 0; j < TABS_VIEW_SIZE; j++)
+                result[index + j] = ' ';
+
+            inserted_tabs++;
+        }
+        else
+        {
+            result[index] = text[i];
+        }
+    }
+
+    return result;
 }
 
 // FIXME: this is bad for performance. we're basically creating a new texture every frame
@@ -163,9 +197,9 @@ void render_buffer(SDL_Renderer *renderer, TextBuffer *buffer, SDL_FRect view_of
             if (line->bytes == 0)
                 continue;
 
-            // char text[size];
-            // memcpy(text, ((char *)buffer->text.data) + line->start, size * buffer->text.element_size);
-            SDL_Surface *surface = TTF_RenderText_Blended(font, (char *)buffer->text.data + line->bytes_offset, line->bytes, (SDL_Color){0, 0, 0});
+            char *text_render = get_text_to_render((char *)buffer->text.data + line->bytes_offset, line->bytes);
+            SDL_Surface *surface = TTF_RenderText_Blended(font, text_render, 0, (SDL_Color){0, 0, 0});
+            free(text_render);
 
             if (surface == NULL)
             {
@@ -230,12 +264,12 @@ void render_selection(SDL_Renderer *renderer, Selection *selection, TextBuffer *
         vector_push(&rects, &rect);
         for (int i = selection->end_y + 1; i < selection->start_y; ++i)
         {
-            rect = selection_rect(0, i, MAX(get_line_length(buffer, i), 1), &view_offset);
+            rect = selection_rect(0, i, MAX(get_line_view_length(buffer, i), 1), &view_offset);
             vector_push(&rects, &rect);
         }
 
         rect = selection_rect(selection->end_x, selection->end_y,
-                              get_line_length(buffer, selection->end_y) - selection->end_x,
+                              get_line_view_length(buffer, selection->end_y) - selection->end_x,
                               &view_offset);
         vector_push(&rects, &rect);
     }
@@ -243,14 +277,14 @@ void render_selection(SDL_Renderer *renderer, Selection *selection, TextBuffer *
     {
         // y_diff is positive >
         rect = selection_rect(selection->start_x, selection->start_y,
-                              MAX(get_line_length(buffer, selection->start_y) - selection->start_x,
+                              MAX(get_line_view_length(buffer, selection->start_y) - selection->start_x,
                                   1),
                               &view_offset);
         vector_push(&rects, &rect);
 
         for (int i = selection->start_y + 1; i < selection->end_y; ++i)
         {
-            rect = selection_rect(0, i, MAX(get_line_length(buffer, i), 1),
+            rect = selection_rect(0, i, MAX(get_line_view_length(buffer, i), 1),
                                   &view_offset);
             vector_push(&rects, &rect);
         }
@@ -289,89 +323,87 @@ bool init_text()
     return true;
 }
 
-void handle_paste(Context *ctx)
+int handle_paste(Selection *selection, TextBuffer *buffer, Cursor *cursor)
 {
     char *text = SDL_GetClipboardText();
-    printf("text: %s\n", text);
     if (strcmp(text, "") == 0)
     {
         printf("ClipboardPaste::%s\n", SDL_GetError());
         free(text);
-        return;
+        return 0;
     }
-    text_add(ctx, text);
+
+    if (selection->is_active)
+    {
+        selection_delete(selection, buffer);
+    }
+
+    int index = text_add(buffer, cursor, text);
     free(text);
+    return index;
 }
-void handle_cut(Context *ctx)
+void handle_cut(Selection *selection, TextBuffer *buffer)
 {
-    printf("HandleCut\n");
-    if (!ctx->selection.is_active)
+    if (!selection->is_active)
         return;
 
-    handle_copy(ctx);
-    ctx->selection.is_active = true;
-    selection_delete(ctx);
+    handle_copy(selection, buffer);
+    selection_delete(selection, buffer);
 }
-void handle_copy(Context *ctx)
+void handle_copy(Selection *selection, TextBuffer *buffer)
 {
-    if (!ctx->selection.is_active)
+    if (!selection->is_active)
         return;
-    order_selection(&ctx->selection);
-    int selection_size = ctx->selection.buffer_end - ctx->selection.buffer_start;
-    char *text = malloc(selection_size);
-    memcpy(text, (char *)ctx->buffer.text.data + ctx->selection.buffer_start, selection_size);
+
+    int selection_size = selection->buffer_end - selection->buffer_start;
+    char *text = calloc(selection_size + 1, sizeof(char));
+    memcpy(text, (char *)buffer->text.data + selection->buffer_start, selection_size);
 
     if (!SDL_SetClipboardText(text))
     {
         printf("ClipboardCopy::%s\n", SDL_GetError());
     }
     free(text);
-    selection_cancel(ctx);
 }
 
-void selection_start(Context *ctx)
+void selection_start(Selection *selection, Cursor *cursor, TextBuffer *buffer)
 {
-    size_t buffer_start = get_buffer_index(&ctx->cursor, &ctx->buffer);
-    printf("StartingSelection: %i\n", ctx->cursor.y);
-    Selection *selection = &ctx->selection;
+    size_t buffer_start = get_buffer_index(cursor, buffer);
+    printf("StartingSelection: %i\n", cursor->y);
 
     selection->buffer_start = buffer_start;
     selection->buffer_end = buffer_start;
-    selection->start_x = ctx->cursor.x;
-    selection->start_y = ctx->cursor.y;
-    selection->end_x = ctx->cursor.x;
-    selection->end_y = ctx->cursor.y;
+    selection->start_x = cursor->x;
+    selection->start_y = cursor->y;
+    selection->end_x = cursor->x;
+    selection->end_y = cursor->y;
     selection->is_active = true;
 }
 
-void selection_cancel(Context *ctx)
+void selection_cancel(Selection *selection)
 {
-    ctx->selection.is_active = false;
+    selection->is_active = false;
 }
 
-void selection_delete(Context *ctx)
+void selection_delete(Selection *selection, TextBuffer *buffer)
 {
-    Selection *selection = &ctx->selection;
 
     order_selection(selection);
-
     size_t start = selection->buffer_start;
     size_t end = selection->buffer_end;
-
     Range range = {.start = start, .end = end};
-    vector_remove_range(&ctx->buffer.text, range);
-    recompute_lines(&ctx->buffer);
-    cursor_move_to_selection_start(ctx);
-    selection_cancel(ctx);
+    vector_remove_range(&buffer->text, range);
+    recompute_lines(buffer);
+    selection_cancel(selection);
 }
 
-void selection_update(Context *ctx)
+void selection_update(Selection *selection, Cursor *cursor, TextBuffer *buffer)
 {
-    if (ctx->selection.is_active)
+    if (selection->is_active)
     {
-        size_t index = get_buffer_index(&ctx->cursor, &ctx->buffer);
-        ctx->selection.end_x = ctx->cursor.x;
-        ctx->selection.end_y = ctx->cursor.y;
-        ctx->selection.buffer_end = index;
+        size_t index = get_buffer_index(cursor, buffer);
+        selection->end_x = cursor->view_x;
+        selection->end_y = cursor->y;
+        selection->buffer_end = index;
     }
 }

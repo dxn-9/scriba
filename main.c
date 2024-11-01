@@ -51,8 +51,12 @@ bool loop(Context *context)
         switch (e.type)
         {
         case SDL_EVENT_TEXT_INPUT:
-            text_add(context, e.text.text);
-            cursor_move_right(context);
+
+            if (selection->is_active)
+                clear_selection_text(selection, buffer, cursor);
+
+            text_add(buffer, cursor, e.text.text);
+            cursor_move_right(cursor, buffer);
 
             break;
         case SDL_EVENT_QUIT:
@@ -62,63 +66,86 @@ bool loop(Context *context)
             {
             case SDLK_LEFT:
                 if (e.key.mod == SDL_KMOD_LSHIFT && !selection->is_active)
-                    selection_start(context);
-                cursor_move_left(context);
+                    selection_start(selection, cursor, buffer);
+                cursor_move_left(cursor, buffer);
+                selection_update(selection, cursor, buffer);
                 if (!(e.key.mod == SDL_KMOD_LSHIFT) && selection->is_active)
                 {
-                    selection_cancel(context);
+                    selection_cancel(selection);
                 }
                 break;
             case SDLK_UP:
                 if (e.key.mod == SDL_KMOD_LSHIFT && !selection->is_active)
-                    selection_start(context);
-                cursor_move_up(context);
+                    selection_start(selection, cursor, buffer);
+                cursor_move_up(cursor, buffer);
+                selection_update(selection, cursor, buffer);
                 if (!(e.key.mod == SDL_KMOD_LSHIFT) && selection->is_active)
                 {
-                    selection_cancel(context);
+                    selection_cancel(selection);
                 }
                 break;
             case SDLK_RIGHT:
                 if (e.key.mod == SDL_KMOD_LSHIFT && !selection->is_active)
-                    selection_start(context);
-                cursor_move_right(context);
+                    selection_start(selection, cursor, buffer);
+                cursor_move_right(cursor, buffer);
+                selection_update(selection, cursor, buffer);
                 if (!(e.key.mod == SDL_KMOD_LSHIFT) && selection->is_active)
                 {
-                    selection_cancel(context);
+                    selection_cancel(selection);
                 }
                 break;
             case SDLK_DOWN:
                 if (e.key.mod == SDL_KMOD_LSHIFT && !selection->is_active)
-                    selection_start(context);
-                cursor_move_down(context);
+                    selection_start(selection, cursor, buffer);
+                cursor_move_down(cursor, buffer);
+                selection_update(selection, cursor, buffer);
                 if (!(e.key.mod == SDL_KMOD_LSHIFT) && selection->is_active)
                 {
-                    selection_cancel(context);
+                    selection_cancel(selection);
+                }
+                break;
+            case SDLK_A:
+                if (e.key.mod & SDL_KMOD_CTRL)
+                {
+                    Cursor start_cursor = new_cursor(0, 0, cursor->w, cursor->h);
+                    int last_line_index = buffer->lines.length - 1;
+
+                    SDL_assert(last_line_index >= 0);
+
+                    Line *last_line = get_line_at(buffer, last_line_index);
+
+                    Cursor end_cursor = new_cursor((last_line->end - last_line->start) - 1, last_line_index, cursor->w, cursor->h);
+                    cursor_update_view_x(&end_cursor, buffer);
+                    selection_start(selection, &start_cursor, buffer);
+                    selection_update(selection, &end_cursor, buffer);
                 }
                 break;
             case SDLK_S:
-                if (e.key.mod == SDL_KMOD_LGUI)
+                if (e.key.mod & SDL_KMOD_LGUI || e.key.mod & SDL_KMOD_CTRL)
                 {
-                    printf("Saving!!\n");
                     save(context);
                 }
                 break;
             case SDLK_V:
                 if (e.key.mod & SDL_KMOD_GUI || e.key.mod & SDL_KMOD_CTRL)
                 {
-                    handle_paste(context);
+                    int buffer_index = handle_paste(selection, buffer, cursor);
+                    cursor_set_from_buffer_index(cursor, buffer, buffer_index);
                 }
                 break;
             case SDLK_C:
                 if (e.key.mod & SDL_KMOD_GUI || e.key.mod & SDL_KMOD_CTRL)
                 {
-                    handle_copy(context);
+                    order_selection(selection);
+                    handle_copy(selection, buffer);
+                    selection_cancel(selection);
                 }
                 break;
             case SDLK_X:
                 if (e.key.mod & SDL_KMOD_GUI || e.key.mod & SDL_KMOD_CTRL)
                 {
-                    handle_cut(context);
+                    order_selection(selection);
+                    handle_cut(selection, buffer);
                 }
                 break;
             case SDLK_R:
@@ -128,16 +155,26 @@ bool loop(Context *context)
                 debug_vec(&buffer->lines);
                 break;
             case SDLK_RETURN:
-                text_newline(context);
+                if (selection->is_active)
+                    clear_selection_text(selection, buffer, cursor);
+                text_add(buffer, cursor, "\n");
+                cursor_move_down(cursor, buffer);
+                break;
+            case SDLK_TAB:
+                if (selection->is_active)
+                    clear_selection_text(selection, buffer, cursor);
+                text_add(buffer, cursor, "\t");
+                cursor_move_right(cursor, buffer);
+                selection_update(selection, cursor, buffer);
                 break;
             case SDLK_BACKSPACE:
-                if (!(e.key.mod == SDL_KMOD_LSHIFT) && selection->is_active)
+                if (selection->is_active)
                 {
-                    selection_delete(context);
+                    clear_selection_text(selection, buffer, cursor);
                 }
                 else
                 {
-                    text_remove_char(context);
+                    text_remove_char(buffer, cursor);
                 }
                 break;
             case SDLK_ESCAPE:

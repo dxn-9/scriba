@@ -1,5 +1,5 @@
 CC := clang
-CFLAGS := -g $(shell pkg-config sdl3-ttf --cflags)
+CFLAGS := -g -Wall $(shell pkg-config sdl3-ttf --cflags)
 TARGET_NAME := scriba
 SOURCE := main.c utils.c vector.c clock.c cursor.c text.c bottom_bar.c
 LDFLAGS := -I. $(shell pkg-config sdl3-ttf --libs)
