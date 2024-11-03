@@ -7,7 +7,26 @@
 #include "text.h"
 #include "constants.h"
 
-int calculate_view_whitespace(char *text, int size)
+Vector2I get_cursor_pos_from_screen(float x, float y, SDL_FRect last_view_offset, int char_w, int char_h)
+{
+
+    Vector2I vec = {.x = 0, .y = 0};
+    float line_number_offset = get_line_number_offset(char_w);
+    int line_scroll_y = SDL_fabs(last_view_offset.y / char_h);
+    int line_scroll_x = SDL_fabs(last_view_offset.x / char_w);
+
+    int pos_x = ((x - line_number_offset) / char_w) + line_scroll_x;
+    vec.x = pos_x;
+    vec.y = (y / char_h) + line_scroll_y;
+    return vec;
+}
+
+int get_line_number_offset(int char_w)
+{
+    return char_w * LINE_NUMBER_SPACE;
+}
+
+int get_view_whitespace(char *text, int size)
 {
     int tabs_num = 0;
 
@@ -19,11 +38,13 @@ int calculate_view_whitespace(char *text, int size)
 
     return tabs_num * TABS_VIEW_SIZE;
 }
-SDL_FRect calculate_view_offset(SDL_FRect previous_offset, int win_w, int win_h, Cursor *cursor)
+SDL_FRect get_view_offset(SDL_FRect previous_offset, int win_w, int win_h, Cursor *cursor)
 {
     SDL_FRect offset;
 
-    int cursor_nums_x = win_w / cursor->w;
+    int line_offset = get_line_number_offset(cursor->w);
+
+    int cursor_nums_x = (win_w - line_offset) / cursor->w;
     int cursor_nums_y = win_h / cursor->h;
 
     int previous_cursor_x = SDL_fabs(previous_offset.x / cursor->w);

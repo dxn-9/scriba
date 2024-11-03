@@ -5,6 +5,11 @@
 #ifndef _UTILS_H
 #define _UTILS_H
 
+typedef struct Vector2I
+{
+    int x, y;
+} Vector2I;
+
 typedef struct Context
 {
     char *file_name;
@@ -14,8 +19,10 @@ typedef struct Context
 
 } Context;
 
-int calculate_view_whitespace(char *text, int size); // Calculates how much whitespace there is in the given string of size
-SDL_FRect calculate_view_offset(SDL_FRect previous_offset, int win_w, int win_h, Cursor *cursor);
+Vector2I get_cursor_pos_from_screen(float x, float y, SDL_FRect last_view_offset, int char_w, int char_h);
+int get_line_number_offset(int char_w);
+int get_view_whitespace(char *text, int size); // Calculates how much whitespace there is in the given string of size
+SDL_FRect get_view_offset(SDL_FRect previous_offset, int win_w, int win_h, Cursor *cursor);
 // Renders a null terminated string at the given position
 void render_text(SDL_Renderer *renderer, char *text, SDL_Color color, int x, int y);
 void render_fill_rectangle(SDL_Renderer *renderer, SDL_Color color, SDL_FRect rect);

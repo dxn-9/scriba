@@ -57,13 +57,10 @@ void cursor_update_view_x(Cursor *cursor, TextBuffer *buffer)
     }
 
     cursor->view_x = cursor->x + new_lines_in_line * (TABS_VIEW_SIZE - 1);
-    debug_cursor(cursor);
 }
 void cursor_set_x(Cursor *cursor, TextBuffer *buffer, int value)
 {
-    SDL_assert(get_line_length(buffer, cursor->y) >= value);
-
-    cursor->x = value;
+    cursor->x = MIN(value, get_line_length(buffer, cursor->y));
     cursor_update_view_x(cursor, buffer);
 }
 void cursor_set_y(Cursor *cursor, TextBuffer *buffer, int value)

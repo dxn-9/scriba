@@ -17,6 +17,7 @@
 SDL_Window *win = NULL;
 SDL_Renderer *renderer;
 SDL_FRect last_view_offset;
+bool is_mouse_down = false;
 
 void save(Context *ctx)
 {
@@ -39,11 +40,11 @@ bool loop(Context *context)
     TextBuffer *buffer = &context->buffer;
     Cursor *cursor = &context->cursor;
     Selection *selection = &context->selection;
-
-    SDL_SetRenderDrawColor(renderer, 0, 255, 255, 255);
+    SDL_SetRenderDrawColor(renderer, 45, 42, 46, 255);
     SDL_RenderClear(renderer);
 
     SDL_Event e;
+    int scroll_offset_y = 0;
 
     while (SDL_PollEvent(&e) != 0)
     {
@@ -61,6 +62,58 @@ bool loop(Context *context)
             break;
         case SDL_EVENT_QUIT:
             return false;
+
+        case SDL_EVENT_MOUSE_BUTTON_DOWN:
+        {
+            Vector2I pos = get_cursor_pos_from_screen(e.button.x, e.button.y, last_view_offset, cursor->w, cursor->h);
+            // Make sure to clamp the values between legal values.
+            pos.y = MIN(MAX(0, pos.y), buffer->lines.length - 1);
+            pos.x = MIN(MAX(0, pos.x), get_line_length(buffer, pos.y));
+            is_mouse_down = true;
+            cursor_set_y(cursor, buffer, pos.y);
+            cursor_set_x(cursor, buffer, pos.x);
+            if (selection->is_active)
+            {
+                selection_cancel(selection);
+            }
+        }
+        break;
+
+        case SDL_EVENT_MOUSE_MOTION:
+            if (is_mouse_down)
+            {
+                if (selection->is_active)
+                {
+
+                    Vector2I pos = get_cursor_pos_from_screen(e.button.x, e.button.y, last_view_offset, cursor->w, cursor->h);
+                    // Make sure to clamp the values between legal values.
+                    pos.y = MIN(MAX(0, pos.y), buffer->lines.length - 1);
+                    pos.x = MIN(MAX(0, pos.x), get_line_length(buffer, pos.y));
+                    cursor_set_y(cursor, buffer, pos.y);
+                    cursor_set_x(cursor, buffer, pos.x);
+                    selection_update(selection, cursor, buffer);
+                }
+                else
+                {
+                    selection_start(selection, cursor, buffer);
+                }
+            }
+            break;
+        case SDL_EVENT_MOUSE_BUTTON_UP:
+            is_mouse_down = false;
+            break;
+        case SDL_EVENT_MOUSE_WHEEL:
+        {
+            if (e.wheel.y < 0)
+            {
+                scroll_offset_y = 3;
+            }
+            else
+            {
+                scroll_offset_y = -3;
+            }
+        }
+        break;
         case SDL_EVENT_KEY_DOWN:
             switch (e.key.key)
             {
@@ -186,12 +239,15 @@ bool loop(Context *context)
 
     int win_w, win_h;
     SDL_GetWindowSizeInPixels(win, &win_w, &win_h);
+    last_view_offset.y -= scroll_offset_y * cursor->y;
 
-    SDL_FRect offset = calculate_view_offset(last_view_offset, win_w, win_h, cursor);
+    SDL_FRect offset = get_view_offset(last_view_offset, win_w, win_h, cursor);
     last_view_offset = offset;
 
+    offset.x += get_line_number_offset(cursor->w);
+
     render_selection(renderer, &context->selection, buffer, offset);
-    render_buffer(renderer, buffer, offset);
+    render_buffer(renderer, buffer, offset, cursor->w, cursor->h, win_h);
     render_cursor(renderer, cursor, offset);
     render_bottom_bar(renderer, win_w, win_h);
 
@@ -208,7 +264,10 @@ bool init()
         printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
         return false;
     }
-    win = SDL_CreateWindow("Scriba", 500, 300, 0);
+
+    SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_INPUT_FOCUS | SDL_WINDOW_MOUSE_FOCUS;
+
+    win = SDL_CreateWindow("Scriba", DEFAULT_WIDTH, DEFAULT_HEIGHT, flags);
     if (win == NULL)
     {
         printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());

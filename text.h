@@ -66,7 +66,7 @@ void selection_start(Selection *selection, Cursor *cursor, TextBuffer *buffer);
 void selection_delete(Selection *selection, TextBuffer *buffer);
 void selection_update(Selection *selection, Cursor *cursor, TextBuffer *buffer);
 
-void render_buffer(SDL_Renderer *renderer, TextBuffer *text, SDL_FRect view_offset);
+void render_buffer(SDL_Renderer *renderer, TextBuffer *text, SDL_FRect view_offset, int char_w, int char_h, int win_h);
 void render_selection(SDL_Renderer *renderer, Selection *selection, TextBuffer *text, SDL_FRect view_offset);
 
 #endif // _TEXT_H

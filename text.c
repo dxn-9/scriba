@@ -115,7 +115,7 @@ int get_line_view_length(TextBuffer *buffer, int line)
     SDL_assert(line < buffer->lines.length || line >= 0);
 
     Line *data = get_line_at(buffer, line);
-    int white_space = calculate_view_whitespace((char *)buffer->text.data + data->bytes_offset, data->bytes);
+    int white_space = get_view_whitespace((char *)buffer->text.data + data->bytes_offset, data->bytes);
     int line_length = get_line_length(buffer, line);
     int tabs_count = white_space / TABS_VIEW_SIZE; // TODO: if there are other whitespace sources, this doesnt work.
 
@@ -185,56 +185,33 @@ char *get_text_to_render(char *text, int size)
 
 // FIXME: this is bad for performance. we're basically creating a new texture every frame
 // for each line. It should be cached.
-void render_buffer(SDL_Renderer *renderer, TextBuffer *buffer, SDL_FRect view_offset)
+void render_buffer(SDL_Renderer *renderer, TextBuffer *buffer, SDL_FRect view_offset, int char_w, int char_h, int win_h)
 {
     Vector text = buffer->text;
 
+    int start_view_y = (int)SDL_fabs(view_offset.y / char_h);
+    int end_view_y = (win_h / char_h) + 1 + start_view_y;
+
     if (text.length > 0)
     {
-        for (int i = 0; i < buffer->lines.length; i++)
+        for (int i = start_view_y; i < end_view_y; i++)
         {
+            if (i >= buffer->lines.length)
+                break;
+
             Line *line = get_line_at(buffer, i);
-            if (line->bytes == 0)
-                continue;
 
             char *text_render = get_text_to_render((char *)buffer->text.data + line->bytes_offset, line->bytes);
-            SDL_Surface *surface = TTF_RenderText_Blended(font, text_render, 0, (SDL_Color){0, 0, 0});
+            char line_text[LINE_NUMBER_SPACE + 1];
+            sprintf(line_text, "%i", i + 1);
+            render_text(renderer, line_text, LINE_TEXT_COLOR, view_offset.x - get_line_number_offset(char_w), view_offset.y + i * char_h);
+            if (line->bytes == 0)
+            {
+                free(text_render);
+                continue;
+            }
+            render_text(renderer, text_render, TEXT_COLOR, view_offset.x, view_offset.y + i * char_h);
             free(text_render);
-
-            if (surface == NULL)
-            {
-                printf("Error creating surface in render_text: %s\n", SDL_GetError());
-                // printf("Text info: %s %i", text, size);
-                exit(1);
-            }
-            SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
-            if (texture == NULL)
-            {
-                printf("Error creating texture in render_text: %s\n", SDL_GetError());
-                exit(1);
-            }
-
-            SDL_PropertiesID properties = SDL_GetTextureProperties(texture);
-            int texW = SDL_GetNumberProperty(properties, SDL_PROP_TEXTURE_WIDTH_NUMBER, 0);
-            int texH = SDL_GetNumberProperty(properties, SDL_PROP_TEXTURE_HEIGHT_NUMBER, 0);
-            // printf("TextureProperties: %i %i\n", texW, texH);
-
-            if (!properties)
-            {
-                printf("QueryTexture Failed %s", SDL_GetError());
-                exit(1);
-            }
-            SDL_FRect dest_rectangle = {
-                view_offset.x, i * texH + view_offset.y, texW, texH};
-
-            if (!SDL_RenderTexture(renderer, texture, NULL, &dest_rectangle))
-            {
-                printf("RenderCopy failed: %s", SDL_GetError());
-                exit(1);
-            }
-
-            SDL_DestroySurface(surface);
-            SDL_DestroyTexture(texture);
         }
     }
 }
@@ -260,11 +237,11 @@ void render_selection(SDL_Renderer *renderer, Selection *selection, TextBuffer *
     }
     else if (y_diff < 0)
     {
-        rect = selection_rect(0, selection->start_y, selection->start_x, &view_offset);
+        rect = selection_rect(0, selection->start_y, MAX(selection->start_x, EMPTY_LINE_SELECTED_VIEW_WIDTH), &view_offset);
         vector_push(&rects, &rect);
         for (int i = selection->end_y + 1; i < selection->start_y; ++i)
         {
-            rect = selection_rect(0, i, MAX(get_line_view_length(buffer, i), 1), &view_offset);
+            rect = selection_rect(0, i, MAX(get_line_view_length(buffer, i), EMPTY_LINE_SELECTED_VIEW_WIDTH), &view_offset);
             vector_push(&rects, &rect);
         }
 
@@ -278,13 +255,13 @@ void render_selection(SDL_Renderer *renderer, Selection *selection, TextBuffer *
         // y_diff is positive >
         rect = selection_rect(selection->start_x, selection->start_y,
                               MAX(get_line_view_length(buffer, selection->start_y) - selection->start_x,
-                                  1),
+                                  EMPTY_LINE_SELECTED_VIEW_WIDTH),
                               &view_offset);
         vector_push(&rects, &rect);
 
         for (int i = selection->start_y + 1; i < selection->end_y; ++i)
         {
-            rect = selection_rect(0, i, MAX(get_line_view_length(buffer, i), 1),
+            rect = selection_rect(0, i, MAX(get_line_view_length(buffer, i), EMPTY_LINE_SELECTED_VIEW_WIDTH),
                                   &view_offset);
             vector_push(&rects, &rect);
         }
@@ -373,9 +350,9 @@ void selection_start(Selection *selection, Cursor *cursor, TextBuffer *buffer)
 
     selection->buffer_start = buffer_start;
     selection->buffer_end = buffer_start;
-    selection->start_x = cursor->x;
+    selection->start_x = cursor->view_x;
     selection->start_y = cursor->y;
-    selection->end_x = cursor->x;
+    selection->end_x = cursor->view_x;
     selection->end_y = cursor->y;
     selection->is_active = true;
 }
