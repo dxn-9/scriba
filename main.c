@@ -44,7 +44,8 @@ bool loop(Context *context)
     SDL_RenderClear(renderer);
 
     SDL_Event e;
-    int scroll_offset_y = 0;
+    float scroll_offset_y = 0;
+    bool should_focus_cursor = false; // Flag to "recenter" the view if an action was performed
 
     while (SDL_PollEvent(&e) != 0)
     {
@@ -58,7 +59,7 @@ bool loop(Context *context)
 
             text_add(buffer, cursor, e.text.text);
             cursor_move_right(cursor, buffer);
-
+            should_focus_cursor = true;
             break;
         case SDL_EVENT_QUIT:
             return false;
@@ -72,10 +73,12 @@ bool loop(Context *context)
             is_mouse_down = true;
             cursor_set_y(cursor, buffer, pos.y);
             cursor_set_x(cursor, buffer, pos.x);
+
             if (selection->is_active)
             {
                 selection_cancel(selection);
             }
+            should_focus_cursor = true;
         }
         break;
 
@@ -97,6 +100,7 @@ bool loop(Context *context)
                 {
                     selection_start(selection, cursor, buffer);
                 }
+                should_focus_cursor = true;
             }
             break;
         case SDL_EVENT_MOUSE_BUTTON_UP:
@@ -104,14 +108,7 @@ bool loop(Context *context)
             break;
         case SDL_EVENT_MOUSE_WHEEL:
         {
-            if (e.wheel.y < 0)
-            {
-                scroll_offset_y = 3;
-            }
-            else
-            {
-                scroll_offset_y = -3;
-            }
+            scroll_offset_y = -e.wheel.y * SCROLL_MULT;
         }
         break;
         case SDL_EVENT_KEY_DOWN:
@@ -126,6 +123,7 @@ bool loop(Context *context)
                 {
                     selection_cancel(selection);
                 }
+                should_focus_cursor = true;
                 break;
             case SDLK_UP:
                 if (e.key.mod == SDL_KMOD_LSHIFT && !selection->is_active)
@@ -136,6 +134,7 @@ bool loop(Context *context)
                 {
                     selection_cancel(selection);
                 }
+                should_focus_cursor = true;
                 break;
             case SDLK_RIGHT:
                 if (e.key.mod == SDL_KMOD_LSHIFT && !selection->is_active)
@@ -146,6 +145,7 @@ bool loop(Context *context)
                 {
                     selection_cancel(selection);
                 }
+                should_focus_cursor = true;
                 break;
             case SDLK_DOWN:
                 if (e.key.mod == SDL_KMOD_LSHIFT && !selection->is_active)
@@ -156,6 +156,7 @@ bool loop(Context *context)
                 {
                     selection_cancel(selection);
                 }
+                should_focus_cursor = true;
                 break;
             case SDLK_A:
                 if (e.key.mod & SDL_KMOD_CTRL)
@@ -172,12 +173,14 @@ bool loop(Context *context)
                     selection_start(selection, &start_cursor, buffer);
                     selection_update(selection, &end_cursor, buffer);
                 }
+                should_focus_cursor = true;
                 break;
             case SDLK_S:
                 if (e.key.mod & SDL_KMOD_LGUI || e.key.mod & SDL_KMOD_CTRL)
                 {
                     save(context);
                 }
+                should_focus_cursor = true;
                 break;
             case SDLK_V:
                 if (e.key.mod & SDL_KMOD_GUI || e.key.mod & SDL_KMOD_CTRL)
@@ -185,6 +188,7 @@ bool loop(Context *context)
                     int buffer_index = handle_paste(selection, buffer, cursor);
                     cursor_set_from_buffer_index(cursor, buffer, buffer_index);
                 }
+                should_focus_cursor = true;
                 break;
             case SDLK_C:
                 if (e.key.mod & SDL_KMOD_GUI || e.key.mod & SDL_KMOD_CTRL)
@@ -193,6 +197,7 @@ bool loop(Context *context)
                     handle_copy(selection, buffer);
                     selection_cancel(selection);
                 }
+                should_focus_cursor = true;
                 break;
             case SDLK_X:
                 if (e.key.mod & SDL_KMOD_GUI || e.key.mod & SDL_KMOD_CTRL)
@@ -200,6 +205,7 @@ bool loop(Context *context)
                     order_selection(selection);
                     handle_cut(selection, buffer);
                 }
+                should_focus_cursor = true;
                 break;
             case SDLK_R:
                 printf("TextBuffer: \n");
@@ -212,6 +218,7 @@ bool loop(Context *context)
                     clear_selection_text(selection, buffer, cursor);
                 text_add(buffer, cursor, "\n");
                 cursor_move_down(cursor, buffer);
+                should_focus_cursor = true;
                 break;
             case SDLK_TAB:
                 if (selection->is_active)
@@ -219,6 +226,7 @@ bool loop(Context *context)
                 text_add(buffer, cursor, "\t");
                 cursor_move_right(cursor, buffer);
                 selection_update(selection, cursor, buffer);
+                should_focus_cursor = true;
                 break;
             case SDLK_BACKSPACE:
                 if (selection->is_active)
@@ -229,6 +237,7 @@ bool loop(Context *context)
                 {
                     text_remove_char(buffer, cursor);
                 }
+                should_focus_cursor = true;
                 break;
             case SDLK_ESCAPE:
                 return false;
@@ -239,9 +248,10 @@ bool loop(Context *context)
 
     int win_w, win_h;
     SDL_GetWindowSizeInPixels(win, &win_w, &win_h);
-    last_view_offset.y -= scroll_offset_y * cursor->y;
+    printf("%i offset: %f\n", should_focus_cursor, scroll_offset_y);
+    last_view_offset.y -= scroll_offset_y;
 
-    SDL_FRect offset = get_view_offset(last_view_offset, win_w, win_h, cursor);
+    SDL_FRect offset = get_view_offset(last_view_offset, win_w, win_h, cursor, should_focus_cursor, buffer->lines.length, 0);
     last_view_offset = offset;
 
     offset.x += get_line_number_offset(cursor->w);

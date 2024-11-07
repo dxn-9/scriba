@@ -15,5 +15,7 @@
 
 #define DEFAULT_WIDTH 1100
 #define DEFAULT_HEIGHT 800
+#define SCROLL_MULT 4.0
+#define SCROLL_Y_MAX_PADDING 2
 
 #endif

@@ -38,7 +38,8 @@ int get_view_whitespace(char *text, int size)
 
     return tabs_num * TABS_VIEW_SIZE;
 }
-SDL_FRect get_view_offset(SDL_FRect previous_offset, int win_w, int win_h, Cursor *cursor)
+SDL_FRect get_view_offset(SDL_FRect previous_offset, int win_w, int win_h, Cursor *cursor,
+                          bool should_focus_cursor, int max_v_lines, int max_h_lines)
 {
     SDL_FRect offset;
 
@@ -51,12 +52,12 @@ SDL_FRect get_view_offset(SDL_FRect previous_offset, int win_w, int win_h, Curso
     int previous_cursor_y = SDL_fabs(previous_offset.y / cursor->h);
 
     // printf("previous_cursor_x: %i, %f, cursorx: %i , cursorNums: %i\n", previous_cursor_x, previous_offset.x, cursor->x, cursor_nums_x);
-    if ((cursor->view_x + HORIZONTAL_VIEW_OFFSET) > (cursor_nums_x + previous_cursor_x))
+    if (should_focus_cursor && (cursor->view_x + HORIZONTAL_VIEW_OFFSET) > (cursor_nums_x + previous_cursor_x))
     {
         // Shift the view to the right
         offset.x = (cursor_nums_x - (cursor->view_x + HORIZONTAL_VIEW_OFFSET)) * cursor->w;
     }
-    else if (MAX(cursor->view_x - HORIZONTAL_VIEW_OFFSET, 0) < (previous_cursor_x))
+    else if (should_focus_cursor && MAX(cursor->view_x - HORIZONTAL_VIEW_OFFSET, 0) < (previous_cursor_x))
     {
         // Shift the view to the left. Note: cursor->x is never <0
         offset.x = -(previous_cursor_x - 1) * cursor->w;
@@ -67,18 +68,23 @@ SDL_FRect get_view_offset(SDL_FRect previous_offset, int win_w, int win_h, Curso
     }
 
     // Same handling as X just on the Y axis
-    if ((cursor->y + VERTICAL_VIEW_OFFSET) > (cursor_nums_y + previous_cursor_y))
+    if (should_focus_cursor && (cursor->y + VERTICAL_VIEW_OFFSET) > (cursor_nums_y + previous_cursor_y))
     {
         offset.y = (cursor_nums_y - (cursor->y + VERTICAL_VIEW_OFFSET)) * cursor->h;
     }
-    else if (MAX(cursor->y - VERTICAL_VIEW_OFFSET, 0) < previous_cursor_y)
+    else if (should_focus_cursor && MAX(cursor->y - VERTICAL_VIEW_OFFSET, 0) < previous_cursor_y)
     {
         offset.y = -(previous_cursor_y - 1) * cursor->h;
     }
     else
     {
+        printf("Setting offset to previous.\n");
         offset.y = previous_offset.y;
     }
+
+    offset.y = MIN(offset.y, 0.0); // It should never be positive.
+    printf("Offset: %f, maxLines: %f, %i %i\n", offset.y, -((float)max_v_lines * (float)cursor->h), max_v_lines, cursor->h);
+    offset.y = MAX(offset.y, -(((max_v_lines + SCROLL_Y_MAX_PADDING) * cursor->h) - win_h));
 
     return offset;
 }
