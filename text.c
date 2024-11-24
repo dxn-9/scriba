@@ -185,6 +185,15 @@ char *get_text_to_render(char *text, int size)
     return result;
 }
 
+void render_line_counter(SDL_Renderer *renderer, int number, SDL_FRect *view_offset, int char_w, int char_h, int win_h)
+{
+    char line_text[LINE_NUMBER_SPACE + 1];
+    sprintf(line_text, "%i", number + 1);
+    SDL_FRect rect_mask = {.x = 0.0, .h = char_h, .y = number * char_h + view_offset->y, .w = get_line_number_offset(char_w) - 4.0};
+    render_fill_rectangle(renderer, LINE_COLOR, rect_mask);
+    render_text(renderer, line_text, LINE_TEXT_COLOR, 0, view_offset->y + number * char_h);
+}
+
 // FIXME: this is bad for performance. we're basically creating a new texture every frame
 // for each line. It should be cached.
 void render_buffer(SDL_Renderer *renderer, TextBuffer *buffer, SDL_FRect view_offset, int char_w, int char_h, int win_h)
@@ -204,16 +213,19 @@ void render_buffer(SDL_Renderer *renderer, TextBuffer *buffer, SDL_FRect view_of
             Line *line = get_line_at(buffer, i);
 
             char *text_render = get_text_to_render((char *)buffer->text.data + line->bytes_offset, line->bytes);
-            char line_text[LINE_NUMBER_SPACE + 1];
-            sprintf(line_text, "%i", i + 1);
-            render_text(renderer, line_text, LINE_TEXT_COLOR, 0, view_offset.y + i * char_h);
+
             if (line->bytes == 0)
             {
+                render_line_counter(renderer, i, &view_offset, char_w, char_h, win_h);
                 free(text_render);
                 continue;
             }
-            render_text(renderer, text_render, TEXT_COLOR, view_offset.x, view_offset.y + i * char_h);
-            free(text_render);
+            else
+            {
+                render_text(renderer, text_render, TEXT_COLOR, view_offset.x, view_offset.y + i * char_h);
+                render_line_counter(renderer, i, &view_offset, char_w, char_h, win_h);
+                free(text_render);
+            }
         }
     }
 }

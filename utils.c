@@ -11,7 +11,7 @@ Vector2I get_cursor_pos_from_screen(float x, float y, SDL_FRect last_view_offset
 {
 
     Vector2I vec = {.x = 0, .y = 0};
-    float line_number_offset = get_line_number_offset(char_w);
+    float line_number_offset = get_line_number_offset_text(char_w);
     int line_scroll_y = SDL_fabs(last_view_offset.y / char_h);
     int line_scroll_x = SDL_fabs((last_view_offset.x - line_number_offset) / char_w);
 
@@ -24,6 +24,11 @@ Vector2I get_cursor_pos_from_screen(float x, float y, SDL_FRect last_view_offset
 int get_line_number_offset(int char_w)
 {
     return char_w * LINE_NUMBER_SPACE;
+}
+int get_line_number_offset_text(int char_w)
+{
+    // Adds a bit of offset
+    return get_line_number_offset(char_w) + TEXT_PADDING;
 }
 
 int get_view_whitespace(char *text, int size)
@@ -45,10 +50,10 @@ SDL_FRect get_view_offset(SDL_FRect previous_offset, int win_w, int win_h, Curso
 {
     SDL_FRect offset = previous_offset;
 
-    int screen_chars_x = (win_w - get_line_number_offset(cursor->w)) / cursor->w;
+    int screen_chars_x = (win_w - get_line_number_offset_text(cursor->w)) / cursor->w;
     int screen_chars_y = win_h / cursor->h;
 
-    int offset_x = SDL_abs((previous_offset.x - get_line_number_offset(cursor->w)) / cursor->w);
+    int offset_x = SDL_abs((previous_offset.x - get_line_number_offset_text(cursor->w)) / cursor->w);
     int offset_y = SDL_abs((previous_offset.y / cursor->h));
 
     int min_x = offset_x + HORIZONTAL_VIEW_OFFSET;
@@ -79,7 +84,7 @@ SDL_FRect get_view_offset(SDL_FRect previous_offset, int win_w, int win_h, Curso
 
     offset.y += scroll_y;
 
-    offset.x = MIN(offset.x, get_line_number_offset(cursor->w));
+    offset.x = MIN(offset.x, get_line_number_offset_text(cursor->w));
     offset.y = MIN(offset.y, 0.0);
     offset.y = MAX(offset.y, -SDL_abs(((max_v_lines + VERTICAL_VIEW_OFFSET) - screen_chars_y) * cursor->h));
 

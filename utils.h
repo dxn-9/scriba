@@ -21,6 +21,7 @@ typedef struct Context
 
 Vector2I get_cursor_pos_from_screen(float x, float y, SDL_FRect last_view_offset, int char_w, int char_h);
 int get_line_number_offset(int char_w);
+int get_line_number_offset_text(int char_w);   // Adds a some padding for text area
 int get_view_whitespace(char *text, int size); // Calculates how much whitespace there is in the given string of size
 SDL_FRect get_view_offset(SDL_FRect previous_offset, int win_w, int win_h, Cursor *cursor, bool should_focus_cursor, int max_v_lines, int max_h_lines, float scroll_x, float scroll_y);
 // Renders a null terminated string at the given position

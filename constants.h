@@ -11,8 +11,13 @@
     (SDL_Color) { 255, 255, 255, 255 }
 #define LINE_TEXT_COLOR \
     (SDL_Color) { 200, 200, 200, 255 }
+#define BG_COLOR \
+    (SDL_Color) { 45, 42, 46, 255 }
+#define LINE_COLOR \
+    (SDL_Color) { 64, 60, 66, 255 }
 #define EMPTY_LINE_SELECTED_VIEW_WIDTH 0.2
 
+#define TEXT_PADDING 2.5
 #define DEFAULT_WIDTH 1100
 #define DEFAULT_HEIGHT 800
 #define SCROLL_MULT 4.0

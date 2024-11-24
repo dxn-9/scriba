@@ -45,7 +45,7 @@ bool loop(Context *context)
     TextBuffer *buffer = &context->buffer;
     Cursor *cursor = &context->cursor;
     Selection *selection = &context->selection;
-    SDL_SetRenderDrawColor(renderer, 45, 42, 46, 255);
+    SDL_SetRenderDrawColor(renderer, BG_COLOR.r, BG_COLOR.g, BG_COLOR.b, BG_COLOR.a);
     SDL_RenderClear(renderer);
 
     SDL_Event e;
@@ -380,7 +380,7 @@ int main(int argc, char **argv)
     int fps_samples[FPS_SAMPLE_SIZE];
     memset(fps_samples, 0, sizeof(fps_samples));
     size_t frame_counter = 0;
-    last_view_offset.x = get_line_number_offset(char_w_);
+    last_view_offset.x = get_line_number_offset_text(char_w_);
 
     while (loop(&context))
     {
