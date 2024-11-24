@@ -14,9 +14,14 @@
 #include "utils.h"
 #include "constants.h"
 
+/**
+ * TODO:
+ *  - Multiple files open
+ */
+
 SDL_Window *win = NULL;
 SDL_Renderer *renderer;
-SDL_FRect last_view_offset;
+SDL_FRect last_view_offset = {0};
 bool is_mouse_down = false;
 
 void save(Context *ctx)
@@ -44,7 +49,8 @@ bool loop(Context *context)
     SDL_RenderClear(renderer);
 
     SDL_Event e;
-    float scroll_offset_y = 0;
+    float scroll_offset_y = 0.0;
+    float scroll_offset_x = 0.0;
     bool should_focus_cursor = false; // Flag to "recenter" the view if an action was performed
 
     while (SDL_PollEvent(&e) != 0)
@@ -108,7 +114,8 @@ bool loop(Context *context)
             break;
         case SDL_EVENT_MOUSE_WHEEL:
         {
-            scroll_offset_y = -e.wheel.y * SCROLL_MULT;
+            scroll_offset_y = e.wheel.y * SCROLL_MULT;
+            scroll_offset_x = e.wheel.x * SCROLL_MULT;
         }
         break;
         case SDL_EVENT_KEY_DOWN:
@@ -159,7 +166,7 @@ bool loop(Context *context)
                 should_focus_cursor = true;
                 break;
             case SDLK_A:
-                if (e.key.mod & SDL_KMOD_CTRL)
+                if (e.key.mod & SDL_KMOD_GUI || e.key.mod & SDL_KMOD_CTRL)
                 {
                     Cursor start_cursor = new_cursor(0, 0, cursor->w, cursor->h);
                     int last_line_index = buffer->lines.length - 1;
@@ -248,13 +255,9 @@ bool loop(Context *context)
 
     int win_w, win_h;
     SDL_GetWindowSizeInPixels(win, &win_w, &win_h);
-    printf("%i offset: %f\n", should_focus_cursor, scroll_offset_y);
-    last_view_offset.y -= scroll_offset_y;
 
-    SDL_FRect offset = get_view_offset(last_view_offset, win_w, win_h, cursor, should_focus_cursor, buffer->lines.length, 0);
+    SDL_FRect offset = get_view_offset(last_view_offset, win_w, win_h, cursor, should_focus_cursor, buffer->lines.length, max_horizontal_characters, scroll_offset_x, scroll_offset_y);
     last_view_offset = offset;
-
-    offset.x += get_line_number_offset(cursor->w);
 
     render_selection(renderer, &context->selection, buffer, offset);
     render_buffer(renderer, buffer, offset, cursor->w, cursor->h, win_h);
@@ -377,6 +380,8 @@ int main(int argc, char **argv)
     int fps_samples[FPS_SAMPLE_SIZE];
     memset(fps_samples, 0, sizeof(fps_samples));
     size_t frame_counter = 0;
+    last_view_offset.x = get_line_number_offset(char_w_);
+
     while (loop(&context))
     {
         int now = SDL_GetTicks();

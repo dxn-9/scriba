@@ -102,9 +102,7 @@ void render_cursor(SDL_Renderer *renderer, Cursor *cursor, SDL_FRect offset)
 {
     bool is_odd = (app_clock.time / RECTANGLE_BLINK) % 2 == 0;
     SDL_Color color = is_odd ? red : blue;
-    int chars_out_of_view_x = -offset.x / cursor->w;
-    int chars_out_of_view_y = -offset.y / cursor->h;
-    SDL_FRect rect = {(cursor->view_x - chars_out_of_view_x) * cursor->w, (cursor->y - chars_out_of_view_y) * cursor->h, CURSOR_VIEW_SIZE, cursor->h};
+    SDL_FRect rect = {(cursor->view_x * cursor->w) + offset.x, (cursor->y * cursor->h) + offset.y, CURSOR_VIEW_SIZE, cursor->h};
     render_fill_rectangle(renderer, color, rect);
 }
 

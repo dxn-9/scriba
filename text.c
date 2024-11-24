@@ -5,9 +5,11 @@
 #include "text.h"
 #include "constants.h"
 #include "utils.h"
+
 int char_w_, char_h_;
 TTF_Font *font;
 TTF_Font *sm_font;
+int max_horizontal_characters = 0; // The line that has the most characters
 // const char *initial_text = "ắ";
 const char *initial_text = "ắ\nheắắe\neee\neeeee\nee\neee";
 
@@ -51,7 +53,7 @@ void recompute_lines(TextBuffer *buffer)
                 .end = i + 1, // line n is [firstchar..firstchar of n+1)
                 .bytes = bytes,
                 .bytes_offset = bytes_offset};
-
+            max_horizontal_characters = MAX(max_horizontal_characters, i - line_start);
             line_start = i + 1;
             vector_push(&buffer->lines, &line);
         }
@@ -204,7 +206,7 @@ void render_buffer(SDL_Renderer *renderer, TextBuffer *buffer, SDL_FRect view_of
             char *text_render = get_text_to_render((char *)buffer->text.data + line->bytes_offset, line->bytes);
             char line_text[LINE_NUMBER_SPACE + 1];
             sprintf(line_text, "%i", i + 1);
-            render_text(renderer, line_text, LINE_TEXT_COLOR, view_offset.x - get_line_number_offset(char_w), view_offset.y + i * char_h);
+            render_text(renderer, line_text, LINE_TEXT_COLOR, 0, view_offset.y + i * char_h);
             if (line->bytes == 0)
             {
                 free(text_render);

@@ -13,7 +13,7 @@ Vector2I get_cursor_pos_from_screen(float x, float y, SDL_FRect last_view_offset
     Vector2I vec = {.x = 0, .y = 0};
     float line_number_offset = get_line_number_offset(char_w);
     int line_scroll_y = SDL_fabs(last_view_offset.y / char_h);
-    int line_scroll_x = SDL_fabs(last_view_offset.x / char_w);
+    int line_scroll_x = SDL_fabs((last_view_offset.x - line_number_offset) / char_w);
 
     int pos_x = ((x - line_number_offset) / char_w) + line_scroll_x;
     vec.x = pos_x;
@@ -38,56 +38,59 @@ int get_view_whitespace(char *text, int size)
 
     return tabs_num * TABS_VIEW_SIZE;
 }
+
 SDL_FRect get_view_offset(SDL_FRect previous_offset, int win_w, int win_h, Cursor *cursor,
-                          bool should_focus_cursor, int max_v_lines, int max_h_lines)
+                          bool should_focus_cursor, int max_v_lines, int max_h_lines,
+                          float scroll_x, float scroll_y)
 {
-    SDL_FRect offset;
+    SDL_FRect offset = previous_offset;
 
-    int line_offset = get_line_number_offset(cursor->w);
+    int screen_chars_x = (win_w - get_line_number_offset(cursor->w)) / cursor->w;
+    int screen_chars_y = win_h / cursor->h;
 
-    int cursor_nums_x = (win_w - line_offset) / cursor->w;
-    int cursor_nums_y = win_h / cursor->h;
+    int offset_x = SDL_abs((previous_offset.x - get_line_number_offset(cursor->w)) / cursor->w);
+    int offset_y = SDL_abs((previous_offset.y / cursor->h));
 
-    int previous_cursor_x = SDL_fabs(previous_offset.x / cursor->w);
-    int previous_cursor_y = SDL_fabs(previous_offset.y / cursor->h);
+    int min_x = offset_x + HORIZONTAL_VIEW_OFFSET;
+    int max_x = min_x + screen_chars_x - (2 * HORIZONTAL_VIEW_OFFSET);
 
-    // printf("previous_cursor_x: %i, %f, cursorx: %i , cursorNums: %i\n", previous_cursor_x, previous_offset.x, cursor->x, cursor_nums_x);
-    if (should_focus_cursor && (cursor->view_x + HORIZONTAL_VIEW_OFFSET) > (cursor_nums_x + previous_cursor_x))
-    {
-        // Shift the view to the right
-        offset.x = (cursor_nums_x - (cursor->view_x + HORIZONTAL_VIEW_OFFSET)) * cursor->w;
-    }
-    else if (should_focus_cursor && MAX(cursor->view_x - HORIZONTAL_VIEW_OFFSET, 0) < (previous_cursor_x))
-    {
-        // Shift the view to the left. Note: cursor->x is never <0
-        offset.x = -(previous_cursor_x - 1) * cursor->w;
-    }
-    else
-    {
-        offset.x = previous_offset.x;
-    }
+    int min_y = offset_y + VERTICAL_VIEW_OFFSET;
+    int max_y = min_y + screen_chars_y - (2 * VERTICAL_VIEW_OFFSET);
 
-    // Same handling as X just on the Y axis
-    if (should_focus_cursor && (cursor->y + VERTICAL_VIEW_OFFSET) > (cursor_nums_y + previous_cursor_y))
+    if (should_focus_cursor)
     {
-        offset.y = (cursor_nums_y - (cursor->y + VERTICAL_VIEW_OFFSET)) * cursor->h;
-    }
-    else if (should_focus_cursor && MAX(cursor->y - VERTICAL_VIEW_OFFSET, 0) < previous_cursor_y)
-    {
-        offset.y = -(previous_cursor_y - 1) * cursor->h;
-    }
-    else
-    {
-        printf("Setting offset to previous.\n");
-        offset.y = previous_offset.y;
+        if (cursor->view_x > max_x)
+        {
+            offset.x -= (cursor->view_x - max_x) * cursor->w;
+        }
+        if (MAX(cursor->view_x, HORIZONTAL_VIEW_OFFSET) < min_x)
+        {
+            offset.x += SDL_abs(cursor->view_x - min_x) * cursor->w;
+        }
+        if (cursor->y > max_y)
+        {
+            offset.y -= (cursor->y - max_y) * cursor->h;
+        }
+        if (MAX(cursor->y, VERTICAL_VIEW_OFFSET) < min_y)
+        {
+            offset.y += SDL_abs(cursor->y - min_y) * cursor->h;
+        }
     }
 
-    offset.y = MIN(offset.y, 0.0); // It should never be positive.
-    printf("Offset: %f, maxLines: %f, %i %i\n", offset.y, -((float)max_v_lines * (float)cursor->h), max_v_lines, cursor->h);
-    offset.y = MAX(offset.y, -(((max_v_lines + SCROLL_Y_MAX_PADDING) * cursor->h) - win_h));
+    offset.y += scroll_y;
+
+    offset.x = MIN(offset.x, get_line_number_offset(cursor->w));
+    offset.y = MIN(offset.y, 0.0);
+    offset.y = MAX(offset.y, -SDL_abs(((max_v_lines + VERTICAL_VIEW_OFFSET) - screen_chars_y) * cursor->h));
 
     return offset;
 }
+
+void debug_rect(SDL_FRect *rect)
+{
+    printf("Rect: [x:%f,y:%f,w:%f,h:%f]\n", rect->x, rect->y, rect->w, rect->h);
+}
+
 void order_selection(Selection *selection)
 {
     if (selection->buffer_end < selection->buffer_start)

@@ -43,6 +43,7 @@ typedef struct Selection
 
 typedef struct Context Context;
 
+extern int max_horizontal_characters;
 extern TTF_Font *font;
 extern const char *initial_text;
 void clean_text(TextBuffer *buffer);
