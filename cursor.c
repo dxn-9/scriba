@@ -11,7 +11,7 @@
 SDL_Color red = {255, 0, 0, 255};
 SDL_Color blue = {0, 0, 255, 255};
 
-void cursor_move_to_selection_start(Cursor *cursor, Selection *selection)
+inline void cursor_move_to_selection_start(Cursor *cursor, Selection *selection)
 {
     cursor->x = selection->start_x;
     cursor->y = selection->start_y;
@@ -58,43 +58,42 @@ void cursor_update_view_x(Cursor *cursor, TextBuffer *buffer)
 
     cursor->view_x = cursor->x + new_lines_in_line * (TABS_VIEW_SIZE - 1);
 }
-void cursor_set_x(Cursor *cursor, TextBuffer *buffer, int value)
+inline void cursor_set_x(Cursor *cursor, TextBuffer *buffer, int value)
 {
     cursor->x = MIN(value, get_line_length(buffer, cursor->y));
     cursor_update_view_x(cursor, buffer);
 }
-void cursor_set_y(Cursor *cursor, TextBuffer *buffer, int value)
+inline void cursor_set_y(Cursor *cursor, TextBuffer *buffer, int value)
 {
     SDL_assert(buffer->lines.length > value);
     cursor->y = value;
 }
-void cursor_move_up(Cursor *cursor, TextBuffer *buffer)
+inline void cursor_move_up(Cursor *cursor, TextBuffer *buffer)
 {
     cursor->y = MAX(0, cursor->y - 1);
     cursor_set_x(cursor, buffer, MIN(cursor->x, get_line_length(buffer, cursor->y)));
 }
-void cursor_move_down(Cursor *cursor, TextBuffer *buffer)
+inline void cursor_move_down(Cursor *cursor, TextBuffer *buffer)
 {
     cursor->y = MIN(cursor->y + 1, buffer->lines.length - 1);
     cursor_set_x(cursor, buffer, MIN(get_line_length(buffer, cursor->y), cursor->x));
 }
-void cursor_move_left(Cursor *cursor, TextBuffer *buffer)
+inline void cursor_move_left(Cursor *cursor, TextBuffer *buffer)
 {
 
     cursor_set_x(cursor, buffer, MAX(0, cursor->x - 1));
 }
-void cursor_move_start_line(Cursor *cursor, TextBuffer *buffer)
+inline void cursor_move_start_line(Cursor *cursor, TextBuffer *buffer)
 {
     cursor_set_x(cursor, buffer, 0);
 }
 
-void cursor_move_end_line(Cursor *cursor, TextBuffer *buffer)
+inline void cursor_move_end_line(Cursor *cursor, TextBuffer *buffer)
 {
     cursor_set_x(cursor, buffer, get_line_length(buffer, cursor->y));
 }
-void cursor_move_right(Cursor *cursor, TextBuffer *buffer)
+inline void cursor_move_right(Cursor *cursor, TextBuffer *buffer)
 {
-
     cursor_set_x(cursor, buffer, MIN(get_line_length(buffer, cursor->y), cursor->x + 1));
 }
 

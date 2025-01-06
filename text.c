@@ -76,8 +76,8 @@ TextBuffer text_new(Cursor *cursor, const char *initial_str)
     }
     vector_push(&buffer.text, "\0");
     recompute_lines(&buffer);
-    debug_vec(&buffer.text);
-    debug_vec(&buffer.lines);
+    // debug_vec(&buffer.text);
+    // debug_vec(&buffer.lines);
     return buffer;
 }
 void text_remove_char(TextBuffer *buffer, Cursor *cursor)
@@ -143,8 +143,8 @@ int text_add(TextBuffer *buffer, Cursor *cursor, const char *str)
         vector_add(&buffer->text, buffer_index + i, &str[i]);
     }
     recompute_lines(buffer);
-    debug_vec(&buffer->text);
-    debug_vec(&buffer->lines);
+    // debug_vec(&buffer->text);
+    // debug_vec(&buffer->lines);
     return buffer_index + len;
 }
 
@@ -187,8 +187,15 @@ char *get_text_to_render(char *text, int size)
 
 void render_line_counter(SDL_Renderer *renderer, int number, SDL_FRect *view_offset, int char_w, int char_h, int win_h)
 {
-    char line_text[LINE_NUMBER_SPACE + 1];
+    char line_text[LINE_NUMBER_SPACE + 1] = {0};
+    char whitespace[LINE_NUMBER_SPACE + 1] = {0};
     sprintf(line_text, "%i", number + 1);
+    int whitespace_count = LINE_NUMBER_SPACE - 1 - strlen(line_text);
+    for (int i = 0; i < whitespace_count; i++)
+    {
+        whitespace[i] = ' ';
+    }
+    sprintf(line_text, "%s%i", whitespace, number + 1);
     SDL_FRect rect_mask = {.x = 0.0, .h = char_h, .y = number * char_h + view_offset->y, .w = get_line_number_offset(char_w) - 4.0};
     render_fill_rectangle(renderer, LINE_COLOR, rect_mask);
     render_text(renderer, line_text, LINE_TEXT_COLOR, 0, view_offset->y + number * char_h);

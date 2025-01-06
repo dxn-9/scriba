@@ -1,9 +1,13 @@
 *.exe
 *.pdb
 *.ilk
+.DS_Store
 
 .vscode
 .cache
 *.txt
+!CMakeLists.txt
 scriba
 *.dSYM/** 
+build
+.DS_Store

@@ -4,7 +4,7 @@
 
 typedef struct
 {
-    int time, delta_time; // Time and delta time in milliseconds.
+    uint64_t time, delta_time; // Time and delta time in milliseconds.
 } Clock;
 
 void update_clock();

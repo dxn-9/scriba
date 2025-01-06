@@ -6,7 +6,7 @@
 #define FPS_SAMPLE_SIZE 20
 #define TABS_VIEW_SIZE 4
 #define CURSOR_VIEW_SIZE 3
-#define LINE_NUMBER_SPACE 4
+#define LINE_NUMBER_SPACE 5
 #define TEXT_COLOR \
     (SDL_Color) { 255, 255, 255, 255 }
 #define LINE_TEXT_COLOR \

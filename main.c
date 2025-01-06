@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "key_bindings.h"
 #include "bottom_bar.h"
 #include "text.h"
 #include "clock.h"
@@ -45,13 +46,15 @@ bool loop(Context *context)
     TextBuffer *buffer = &context->buffer;
     Cursor *cursor = &context->cursor;
     Selection *selection = &context->selection;
+
     SDL_SetRenderDrawColor(renderer, BG_COLOR.r, BG_COLOR.g, BG_COLOR.b, BG_COLOR.a);
     SDL_RenderClear(renderer);
 
     SDL_Event e;
     float scroll_offset_y = 0.0;
     float scroll_offset_x = 0.0;
-    bool should_focus_cursor = false; // Flag to "recenter" the view if an action was performed
+    // bool should_focus_cursor = false; // Flag to "recenter" the view if an action was performed
+    context->focus_cursor = false; // Reset the focus cursor flag
 
     while (SDL_PollEvent(&e) != 0)
     {
@@ -65,7 +68,7 @@ bool loop(Context *context)
 
             text_add(buffer, cursor, e.text.text);
             cursor_move_right(cursor, buffer);
-            should_focus_cursor = true;
+            context->focus_cursor = true;
             break;
         case SDL_EVENT_QUIT:
             return false;
@@ -84,7 +87,7 @@ bool loop(Context *context)
             {
                 selection_cancel(selection);
             }
-            should_focus_cursor = true;
+            context->focus_cursor = true;
         }
         break;
 
@@ -106,7 +109,7 @@ bool loop(Context *context)
                 {
                     selection_start(selection, cursor, buffer);
                 }
-                should_focus_cursor = true;
+                context->focus_cursor = true;
             }
             break;
         case SDL_EVENT_MOUSE_BUTTON_UP:
@@ -119,150 +122,26 @@ bool loop(Context *context)
         }
         break;
         case SDL_EVENT_KEY_DOWN:
-            switch (e.key.key)
-            {
-            case SDLK_LEFT:
-                if (e.key.mod == SDL_KMOD_LSHIFT && !selection->is_active)
-                    selection_start(selection, cursor, buffer);
-                cursor_move_left(cursor, buffer);
-                selection_update(selection, cursor, buffer);
-                if (!(e.key.mod == SDL_KMOD_LSHIFT) && selection->is_active)
-                {
-                    selection_cancel(selection);
-                }
-                should_focus_cursor = true;
-                break;
-            case SDLK_UP:
-                if (e.key.mod == SDL_KMOD_LSHIFT && !selection->is_active)
-                    selection_start(selection, cursor, buffer);
-                cursor_move_up(cursor, buffer);
-                selection_update(selection, cursor, buffer);
-                if (!(e.key.mod == SDL_KMOD_LSHIFT) && selection->is_active)
-                {
-                    selection_cancel(selection);
-                }
-                should_focus_cursor = true;
-                break;
-            case SDLK_RIGHT:
-                if (e.key.mod == SDL_KMOD_LSHIFT && !selection->is_active)
-                    selection_start(selection, cursor, buffer);
-                cursor_move_right(cursor, buffer);
-                selection_update(selection, cursor, buffer);
-                if (!(e.key.mod == SDL_KMOD_LSHIFT) && selection->is_active)
-                {
-                    selection_cancel(selection);
-                }
-                should_focus_cursor = true;
-                break;
-            case SDLK_DOWN:
-                if (e.key.mod == SDL_KMOD_LSHIFT && !selection->is_active)
-                    selection_start(selection, cursor, buffer);
-                cursor_move_down(cursor, buffer);
-                selection_update(selection, cursor, buffer);
-                if (!(e.key.mod == SDL_KMOD_LSHIFT) && selection->is_active)
-                {
-                    selection_cancel(selection);
-                }
-                should_focus_cursor = true;
-                break;
-            case SDLK_A:
-                if (e.key.mod & SDL_KMOD_GUI || e.key.mod & SDL_KMOD_CTRL)
-                {
-                    Cursor start_cursor = new_cursor(0, 0, cursor->w, cursor->h);
-                    int last_line_index = buffer->lines.length - 1;
-
-                    SDL_assert(last_line_index >= 0);
-
-                    Line *last_line = get_line_at(buffer, last_line_index);
-
-                    Cursor end_cursor = new_cursor((last_line->end - last_line->start) - 1, last_line_index, cursor->w, cursor->h);
-                    cursor_update_view_x(&end_cursor, buffer);
-                    selection_start(selection, &start_cursor, buffer);
-                    selection_update(selection, &end_cursor, buffer);
-                }
-                should_focus_cursor = true;
-                break;
-            case SDLK_S:
-                if (e.key.mod & SDL_KMOD_LGUI || e.key.mod & SDL_KMOD_CTRL)
-                {
-                    save(context);
-                }
-                should_focus_cursor = true;
-                break;
-            case SDLK_V:
-                if (e.key.mod & SDL_KMOD_GUI || e.key.mod & SDL_KMOD_CTRL)
-                {
-                    int buffer_index = handle_paste(selection, buffer, cursor);
-                    cursor_set_from_buffer_index(cursor, buffer, buffer_index);
-                }
-                should_focus_cursor = true;
-                break;
-            case SDLK_C:
-                if (e.key.mod & SDL_KMOD_GUI || e.key.mod & SDL_KMOD_CTRL)
-                {
-                    order_selection(selection);
-                    handle_copy(selection, buffer);
-                    selection_cancel(selection);
-                }
-                should_focus_cursor = true;
-                break;
-            case SDLK_X:
-                if (e.key.mod & SDL_KMOD_GUI || e.key.mod & SDL_KMOD_CTRL)
-                {
-                    order_selection(selection);
-                    handle_cut(selection, buffer);
-                }
-                should_focus_cursor = true;
-                break;
-            case SDLK_R:
-                printf("TextBuffer: \n");
-                debug_vec(&buffer->text);
-                printf("LinesBuffer: \n");
-                debug_vec(&buffer->lines);
-                break;
-            case SDLK_RETURN:
-                if (selection->is_active)
-                    clear_selection_text(selection, buffer, cursor);
-                text_add(buffer, cursor, "\n");
-                cursor_move_down(cursor, buffer);
-                should_focus_cursor = true;
-                break;
-            case SDLK_TAB:
-                if (selection->is_active)
-                    clear_selection_text(selection, buffer, cursor);
-                text_add(buffer, cursor, "\t");
-                cursor_move_right(cursor, buffer);
-                selection_update(selection, cursor, buffer);
-                should_focus_cursor = true;
-                break;
-            case SDLK_BACKSPACE:
-                if (selection->is_active)
-                {
-                    clear_selection_text(selection, buffer, cursor);
-                }
-                else
-                {
-                    text_remove_char(buffer, cursor);
-                }
-                should_focus_cursor = true;
-                break;
-            case SDLK_ESCAPE:
+        {
+            Action action = get_action(e);
+            if (action == Quit)
                 return false;
-            }
-            break;
+            Dispatch(context, e, action);
+        }
+        break;
         }
     }
 
     int win_w, win_h;
     SDL_GetWindowSizeInPixels(win, &win_w, &win_h);
 
-    SDL_FRect offset = get_view_offset(last_view_offset, win_w, win_h, cursor, should_focus_cursor, buffer->lines.length, max_horizontal_characters, scroll_offset_x, scroll_offset_y);
+    SDL_FRect offset = get_view_offset(last_view_offset, win_w, win_h, cursor, context->focus_cursor, buffer->lines.length, max_horizontal_characters, scroll_offset_x, scroll_offset_y);
     last_view_offset = offset;
 
     render_selection(renderer, &context->selection, buffer, offset);
     render_buffer(renderer, buffer, offset, cursor->w, cursor->h, win_h);
     render_cursor(renderer, cursor, offset);
-    render_bottom_bar(renderer, win_w, win_h);
+    render_bottom_bar(renderer, context, win_w, win_h);
 
     SDL_RenderPresent(renderer);
 
@@ -290,18 +169,25 @@ bool init()
     renderer = SDL_CreateRenderer(win, NULL);
     if (renderer == NULL)
     {
-        printf("Failed to create renderer %s", SDL_GetError());
+        printf("Failed to create renderer %s\n", SDL_GetError());
+        return false;
+    }
+    if (!SDL_SetRenderVSync(renderer, 1))
+    {
+
+        printf("Failed to set renderer vsync %s\n", SDL_GetError());
         return false;
     }
     if (!TTF_Init())
+
     {
-        printf("Could not initialize TTF: %s", SDL_GetError());
+        printf("Could not initialize TTF: %s\n", SDL_GetError());
         return false;
     }
 
     if (!init_text())
     {
-        printf("Could not initialize text: %s", SDL_GetError());
+        printf("Could not initialize text: %s\n", SDL_GetError());
         return false;
     }
 
@@ -321,17 +207,18 @@ void quit(Context *context)
     SDL_Quit();
 }
 
-int main(int argc, char **argv)
+int main(int argc, char *argv[])
 {
     SDL_IOStream *stream = NULL;
     Sint64 file_size;
     if (argc != 2)
     {
-        printf("Usage: scriba <pathname>\n");
+        printf("Usage: scriba <filename>\n");
         return 1;
     }
 
     char *file_name = argv[1];
+
     struct stat sb;
     if (stat(file_name, &sb) == -1)
     {
@@ -372,34 +259,31 @@ int main(int argc, char **argv)
     context.buffer = text_new(&context.cursor, data);
     context.selection = (Selection){.is_active = false};
 
-    bottom_bar.cursor = &context.cursor;
-    bottom_bar.selection = &context.selection;
-
     free(data);
 
-    int fps_samples[FPS_SAMPLE_SIZE];
+    uint64_t fps_samples[FPS_SAMPLE_SIZE];
     memset(fps_samples, 0, sizeof(fps_samples));
     size_t frame_counter = 0;
     last_view_offset.x = get_line_number_offset_text(char_w_);
 
     while (loop(&context))
     {
-        int now = SDL_GetTicks();
+        uint64_t now = SDL_GetTicks();
         if (frame_counter % FPS_SAMPLE_SIZE == 0)
         {
-            size_t tot_delta = 0;
+            uint64_t tot_delta = 0;
 
             for (int i = 0; i < FPS_SAMPLE_SIZE; ++i)
             {
                 tot_delta += fps_samples[i];
             }
-            bottom_bar.fps = 1000.0 / ((float)tot_delta / (float)FPS_SAMPLE_SIZE);
+            context.fps = 1000 / (now - app_clock.time);
         }
 
         app_clock.delta_time = now - app_clock.time;
         app_clock.time = now;
 
-        fps_samples[frame_counter % FPS_SAMPLE_SIZE] = app_clock.delta_time;
+        fps_samples[(frame_counter % FPS_SAMPLE_SIZE)] = app_clock.delta_time;
         frame_counter++;
     }
 

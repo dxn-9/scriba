@@ -16,6 +16,8 @@ typedef struct Context
     Cursor cursor;
     TextBuffer buffer;
     Selection selection;
+    bool focus_cursor;
+    double fps;
 
 } Context;
 
