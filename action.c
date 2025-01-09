@@ -59,6 +59,13 @@ void action_cut(Context *context, SDL_Event event)
 }
 void action_move_left(Context *context, SDL_Event event)
 {
+    if (application.mode == Command)
+    {
+        cursor_move_left(&application.command_buffer_cursor, &application.command_buffer);
+        return;
+    }
+    if (application.mode == List)
+        return;
 
     if (event.key.mod == SDL_KMOD_LSHIFT && !context->selection.is_active)
         selection_start(&context->selection, &context->cursor, &context->buffer);
@@ -75,6 +82,13 @@ void action_move_left(Context *context, SDL_Event event)
 
 void action_move_up(Context *context, SDL_Event event)
 {
+    if (application.mode == Command)
+        return;
+    if (application.mode == List)
+    {
+        application.current_editor = MAX(application.current_editor - 1, 0);
+        return;
+    }
     if (event.key.mod == SDL_KMOD_LSHIFT && !context->selection.is_active)
         selection_start(&context->selection, &context->cursor, &context->buffer);
     cursor_move_up(&context->cursor, &context->buffer);
@@ -87,6 +101,14 @@ void action_move_up(Context *context, SDL_Event event)
 }
 void action_move_right(Context *context, SDL_Event event)
 {
+    if (application.mode == Command)
+    {
+        cursor_move_right(&application.command_buffer_cursor, &application.command_buffer);
+        return;
+    }
+    if (application.mode == List)
+        return;
+
     if (event.key.mod == SDL_KMOD_LSHIFT && !context->selection.is_active)
         selection_start(&context->selection, &context->cursor, &context->buffer);
     cursor_move_right(&context->cursor, &context->buffer);
@@ -99,6 +121,13 @@ void action_move_right(Context *context, SDL_Event event)
 }
 void action_move_down(Context *context, SDL_Event event)
 {
+    if (application.mode == Command)
+        return;
+    if (application.mode == List)
+    {
+        application.current_editor = MIN(application.current_editor + 1, application.editors.length - 1);
+        return;
+    }
     if (event.key.mod == SDL_KMOD_LSHIFT && !context->selection.is_active)
         selection_start(&context->selection, &context->cursor, &context->buffer);
     cursor_move_down(&context->cursor, &context->buffer);
@@ -119,12 +148,21 @@ void action_debug_print(Context *context, SDL_Event event)
     printf("CommandBuffer: \n");
     debug_vec(&application.command_buffer.text);
 }
-void action_insert_command(Context *context, SDL_Event event)
+void action_command_mode(Context *context, SDL_Event event)
 {
     clean_text(&application.command_buffer);
     application.command_buffer_cursor = new_cursor(0, 0);
     application.command_buffer = text_new("");
     application.mode = Command;
+}
+void action_list_mode(Context *context, SDL_Event event)
+{
+    application.mode = List;
+}
+void action_insert_mode(Context *context, SDL_Event event)
+{
+    action_command_mode(context, event); // Clean up the command buffer
+    application.mode = Insert;
 }
 
 void action_insert_tab(Context *context, SDL_Event event)
@@ -142,11 +180,16 @@ void action_insert_tab(Context *context, SDL_Event event)
 
 void action_insert_line(Context *context, SDL_Event event)
 {
-    if (application.mode == Command)
+    printf("Here!\n");
+    switch (application.mode)
     {
+    case Command:
+    {
+
         char command[100] = {0};
         strcpy(command, application.command_buffer.text.data);
 
+        // Edit command - open or create a new editor
         if (command[0] == 'e' && command[1] == ' ')
         {
             Context new_editor;
@@ -154,28 +197,55 @@ void action_insert_line(Context *context, SDL_Event event)
             vector_push(&application.editors, &new_editor);
             application.current_editor += 1;
             application.mode = Insert;
+            return;
         }
-        else
+        // Switch command - switch to an open editor by index
+        if (command[0] == 's' && command[1] == ' ')
         {
-
-            clean_text(&application.command_buffer);
-            char invalid_cmd[100];
-            sprintf(invalid_cmd, "Invalid command: %s", command);
-            application.command_buffer = text_new(invalid_cmd);
+            char *num = &command[2];
+            int editor_index = SDL_atoi(num);
+            if (editor_index > 0 && editor_index <= application.editors.length)
+            {
+                application.current_editor = editor_index - 1;
+                return;
+            }
         }
-    }
-    else if (application.mode == Insert)
-    {
+        if (SDL_strcmp(command, "l") == 0)
+        {
+            application.mode = List;
+            return;
+        }
 
+        clean_text(&application.command_buffer);
+        char invalid_cmd[100];
+        sprintf(invalid_cmd, "Invalid command: %s", command);
+        application.command_buffer = text_new(invalid_cmd);
+        cursor_move_start_line(&application.command_buffer_cursor, &application.command_buffer);
+    }
+    break;
+    case List:
+    {
+        application.mode = Insert;
+    }
+    break;
+    case Insert:
+    {
         if (context->selection.is_active)
             clear_selection_text(&context->selection, &context->buffer, &context->cursor);
         text_add(&context->buffer, &context->cursor, "\n");
         cursor_move_down(&context->cursor, &context->buffer);
         context->focus_cursor = true;
     }
+    break;
+    }
 }
 void action_delete_char(Context *context, SDL_Event event)
 {
+    if (application.mode == Command)
+    {
+        text_remove_char(&application.command_buffer, &application.command_buffer_cursor);
+        return;
+    }
     if (context->selection.is_active)
     {
         clear_selection_text(&context->selection, &context->buffer, &context->cursor);
@@ -202,7 +272,9 @@ ActionFunction actionFunctions[] = {
     &action_insert_tab,
     &action_insert_line,
     &action_delete_char,
-    &action_insert_command,
+    &action_command_mode,
+    &action_list_mode,
+    &action_insert_mode,
     &action_save_file};
 
 inline void Dispatch(Context *context, SDL_Event event, Action action)
@@ -222,9 +294,17 @@ bool is_paste(SDL_Event event)
 #endif
 }
 
-bool is_insert_command(SDL_Event event)
+bool is_command_mode(SDL_Event event)
 {
-    return event.key.key == SDLK_F3;
+    return event.key.key == SDLK_F && event.key.mod & SDL_KMOD_CTRL;
+}
+bool is_list_mode(SDL_Event event)
+{
+    return event.key.key == SDLK_L && event.key.mod & SDL_KMOD_CTRL;
+}
+bool is_insert_mode(SDL_Event event)
+{
+    return event.key.key == SDLK_ESCAPE && application.mode != Insert;
 }
 bool is_cut(SDL_Event event)
 {
@@ -283,7 +363,7 @@ bool is_debug_print(SDL_Event event)
 }
 bool is_quit(SDL_Event event)
 {
-    return event.key.key == SDLK_ESCAPE;
+    return event.key.key == SDLK_ESCAPE && application.mode == Insert;
 }
 bool is_insert_tab(SDL_Event event)
 {
@@ -326,12 +406,12 @@ Action get_action(SDL_Event event)
         return InsertLine;
     if (is_delete_char(event))
         return DeleteChar;
-    if (is_insert_command(event))
-    {
-
-        printf("Inset Command!\n");
-        return InsertCommand;
-    }
+    if (is_command_mode(event))
+        return CommandMode;
+    if (is_list_mode(event))
+        return ListMode;
+    if (is_insert_mode(event))
+        return InsertMode;
     if (is_quit(event))
         return Quit;
     return None;

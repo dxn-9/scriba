@@ -7,6 +7,7 @@ typedef enum
 {
     Insert,
     Command,
+    List,
 } Mode;
 
 typedef struct

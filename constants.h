@@ -13,6 +13,8 @@
     (SDL_Color) { 200, 200, 200, 255 }
 #define BG_COLOR \
     (SDL_Color) { 45, 42, 46, 255 }
+#define BG_ACCENT_COLOR \
+    (SDL_Color) { 145, 145, 105, 255 }
 #define LINE_COLOR \
     (SDL_Color) { 64, 60, 66, 255 }
 #define EMPTY_LINE_SELECTED_VIEW_WIDTH 0.2

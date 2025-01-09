@@ -19,7 +19,9 @@ typedef enum
     InsertTab,
     InsertLine,
     DeleteChar,
-    InsertCommand,
+    CommandMode,
+    ListMode,
+    InsertMode,
     SaveFile,
     Quit
 } Action;

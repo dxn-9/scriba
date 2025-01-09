@@ -15,11 +15,6 @@
 #include "utils.h"
 #include "constants.h"
 
-/**
- * TODO:
- *  - Multiple files open
- */
-
 SDL_Window *win = NULL;
 SDL_Renderer *renderer;
 SDL_FRect last_view_offset = {0};
@@ -29,8 +24,17 @@ bool loop()
 {
     Context *context = &((Context *)application.editors.data)[application.current_editor];
     TextBuffer *buffer = &context->buffer;
-    Cursor *cursor = &context->cursor;
+    Cursor *cursor;
     Selection *selection = &context->selection;
+
+    if (application.mode == Insert)
+    {
+        cursor = &context->cursor;
+    }
+    else
+    {
+        cursor = &application.command_buffer_cursor;
+    }
 
     SDL_SetRenderDrawColor(renderer, BG_COLOR.r, BG_COLOR.g, BG_COLOR.b, BG_COLOR.a);
     SDL_RenderClear(renderer);
@@ -127,12 +131,27 @@ bool loop()
     SDL_GetWindowSizeInPixels(win, &application.win_w, &application.win_h);
 
     SDL_FRect offset = get_view_offset(last_view_offset, cursor, context->focus_cursor, buffer->lines.length, max_horizontal_characters, scroll_offset_x, scroll_offset_y);
+    SDL_FRect cursor_offset;
+    if (application.mode == Insert)
+        cursor_offset = offset;
+    else
+    {
+
+        int bar_y = application.win_h - 20;
+        SDL_FRect rect = {
+            .w = 0,
+            .h = 0,
+            .x = TEMP_BOTTOM_BAR_COMMAND_X,
+            .y = bar_y};
+        cursor_offset = rect;
+    }
     last_view_offset = offset;
 
     render_selection(renderer, &context->selection, buffer, offset);
     render_buffer(renderer, buffer, offset);
-    render_cursor(renderer, cursor, offset);
     render_bottom_bar(renderer, context);
+    render_cursor(renderer, cursor, cursor_offset);
+    render_list_editors(renderer);
 
     SDL_RenderPresent(renderer);
 
@@ -189,10 +208,14 @@ bool init()
     return true;
 }
 
-void quit(Context *context)
+void quit()
 {
     clean_text(&application.command_buffer);
-    clean_text(&context->buffer);
+    for (int i = 0; i < application.editors.length; i++)
+    {
+        Context *editor = &((Context *)application.editors.data)[i];
+        clean_text(&editor->buffer);
+    }
     vector_free(&application.editors);
     SDL_StopTextInput(win);
     SDL_DestroyRenderer(renderer);
@@ -205,16 +228,12 @@ int main(int argc, char *argv[])
 {
     SDL_IOStream *stream = NULL;
     Sint64 file_size;
-    if (argc != 2)
+    if (argc <= 1)
     {
-        printf("Usage: scriba <filename>\n");
+        printf("Usage: scriba <filename> [<filename2> ...]\n");
         return 1;
     }
-
-    char *filename = argv[1];
-
-    Context context;
-    read_or_create_file(filename, &context);
+    printf("argc: %i\n", argc);
 
     if (!init())
     {
@@ -222,7 +241,13 @@ int main(int argc, char *argv[])
     }
 
     application.editors = vector_new(sizeof(Context));
-    vector_push(&application.editors, &context);
+    for (int i = 1; i < argc; i++)
+    {
+        char *filename = argv[i];
+        Context context;
+        read_or_create_file(filename, &context);
+        vector_push(&application.editors, &context);
+    }
     application.mode = Insert;
 
     size_t frame_counter = 0;
@@ -239,6 +264,6 @@ int main(int argc, char *argv[])
         frame_counter++;
     }
 
-    quit(&context);
+    quit();
     return 0;
 }

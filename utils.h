@@ -29,6 +29,7 @@ int get_view_whitespace(char *text, int size); // Calculates how much whitespace
 SDL_FRect get_view_offset(SDL_FRect previous_offset, Cursor *cursor, bool should_focus_cursor, int max_v_lines, int max_h_lines, float scroll_x, float scroll_y);
 // Renders a null terminated string at the given position
 void render_text(SDL_Renderer *renderer, char *text, SDL_Color color, int x, int y);
+void render_rectangle(SDL_Renderer *renderer, SDL_Color color, SDL_FRect rect);
 void render_fill_rectangle(SDL_Renderer *renderer, SDL_Color color, SDL_FRect rect);
 // Order the selection such that the start is always smaller than the end.
 void debug_rect(SDL_FRect *rect);

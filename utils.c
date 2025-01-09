@@ -203,6 +203,14 @@ void render_text(SDL_Renderer *renderer, char *text, SDL_Color color, int x, int
     SDL_DestroyTexture(texture);
 }
 
+void render_rectangle(SDL_Renderer *renderer, SDL_Color color, SDL_FRect rect)
+{
+    Uint8 r, g, b, a;
+    SDL_GetRenderDrawColor(renderer, &r, &g, &b, &a);
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+    SDL_RenderRect(renderer, &rect);
+    SDL_SetRenderDrawColor(renderer, r, g, b, a);
+}
 void render_fill_rectangle(SDL_Renderer *renderer, SDL_Color color, SDL_FRect rect)
 {
     Uint8 r, g, b, a;

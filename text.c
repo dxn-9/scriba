@@ -9,8 +9,6 @@
 TTF_Font *font;
 TTF_Font *sm_font;
 int max_horizontal_characters = 0; // The line that has the most characters
-// const char *initial_text = "ắ";
-const char *initial_text = "ắ\nheắắe\neee\neeeee\nee\neee";
 
 void recompute_lines(TextBuffer *buffer)
 {
@@ -25,7 +23,7 @@ void recompute_lines(TextBuffer *buffer)
     int i = 0;
     int tot_bytes = strlen(ptr);
 
-    // using the lord's loop. lets go.
+    // 🤠🤠🤠🤠🤠
     do
     {
         if (ptr[0] == '\n' || ptr[0] == '\0')
@@ -140,8 +138,6 @@ int text_add(TextBuffer *buffer, Cursor *cursor, const char *str)
         vector_add(&buffer->text, buffer_index + i, &str[i]);
     }
     recompute_lines(buffer);
-    // debug_vec(&buffer->text);
-    // debug_vec(&buffer->lines);
     return buffer_index + len;
 }
 
