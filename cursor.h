@@ -12,7 +12,6 @@ typedef struct Context Context;
 typedef struct Cursor
 {
     int x, y;
-    int w, h;   // Visual Representation
     int view_x; // How much visually it's shifted to the right. This is useful for handling spaces and tabs.
 
 } Cursor;
@@ -33,6 +32,6 @@ void render_cursor(SDL_Renderer *renderer, Cursor *cursor, SDL_FRect offset);
 void cursor_set_from_buffer_index(Cursor *cursor, TextBuffer *buffer, int buffer_index);
 void debug_cursor(Cursor *cursor);
 Cursor copy_cursor(Cursor *cursor);
-Cursor new_cursor(int x, int y, int char_w, int char_h);
+Cursor new_cursor(int x, int y);
 
 #endif // _CURSOR_H

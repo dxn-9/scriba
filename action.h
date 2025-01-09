@@ -19,9 +19,13 @@ typedef enum
     InsertTab,
     InsertLine,
     DeleteChar,
+    InsertCommand,
+    SaveFile,
     Quit
 } Action;
 
 void Dispatch(Context *context, SDL_Event event, Action action);
 void (*ActionPtr)(Context *);
+Action get_action(SDL_Event event);
+
 #endif // _ACTION_H

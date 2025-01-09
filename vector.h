@@ -24,6 +24,7 @@ Vector vector_new(size_t element_size);
 void vector_add(Vector *vec, size_t position, const void *element);
 void vector_push(Vector *vec, const void *element);
 void vector_pop(Vector *vec);
+void vector_clear(Vector *vec);
 void vector_free(Vector *vec);
 void vector_remove(Vector *vec, size_t position);
 void vector_remove_range(Vector *vec, Range range);

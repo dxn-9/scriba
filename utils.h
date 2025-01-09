@@ -1,5 +1,6 @@
 
 #include "text.h"
+#include "application.h"
 #include "SDL3/SDL.h"
 
 #ifndef _UTILS_H
@@ -12,20 +13,20 @@ typedef struct Vector2I
 
 typedef struct Context
 {
-    char *file_name;
+    char *filename;
     Cursor cursor;
     TextBuffer buffer;
     Selection selection;
     bool focus_cursor;
-    double fps;
 
 } Context;
 
-Vector2I get_cursor_pos_from_screen(float x, float y, SDL_FRect last_view_offset, int char_w, int char_h);
-int get_line_number_offset(int char_w);
-int get_line_number_offset_text(int char_w);   // Adds a some padding for text area
+bool read_or_create_file(char *filename, Context *context);
+Vector2I get_cursor_pos_from_screen(float x, float y, SDL_FRect last_view_offset);
+int get_line_number_offset();
+int get_line_number_offset_text();             // Adds a some padding for text area
 int get_view_whitespace(char *text, int size); // Calculates how much whitespace there is in the given string of size
-SDL_FRect get_view_offset(SDL_FRect previous_offset, int win_w, int win_h, Cursor *cursor, bool should_focus_cursor, int max_v_lines, int max_h_lines, float scroll_x, float scroll_y);
+SDL_FRect get_view_offset(SDL_FRect previous_offset, Cursor *cursor, bool should_focus_cursor, int max_v_lines, int max_h_lines, float scroll_x, float scroll_y);
 // Renders a null terminated string at the given position
 void render_text(SDL_Renderer *renderer, char *text, SDL_Color color, int x, int y);
 void render_fill_rectangle(SDL_Renderer *renderer, SDL_Color color, SDL_FRect rect);

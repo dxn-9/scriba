@@ -12,11 +12,10 @@ set(SOURCES
     main.c
     utils.c
     vector.c
-    clock.c
+    application.c
     cursor.c
     text.c
     bottom_bar.c
-    key_bindings.c
     action.c
 )
 

@@ -7,10 +7,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "key_bindings.h"
 #include "bottom_bar.h"
 #include "text.h"
-#include "clock.h"
+#include "application.h"
+#include "action.h"
 #include "cursor.h"
 #include "utils.h"
 #include "constants.h"
@@ -25,24 +25,9 @@ SDL_Renderer *renderer;
 SDL_FRect last_view_offset = {0};
 bool is_mouse_down = false;
 
-void save(Context *ctx)
+bool loop()
 {
-    SDL_IOStream *stream = SDL_IOFromFile(ctx->file_name, "w");
-    size_t size = SDL_WriteIO(stream, ctx->buffer.text.data, ctx->buffer.text.length - 1);
-    if (size < ctx->buffer.text.length - 1)
-    {
-        printf("SaveFailed::%s", SDL_GetError());
-        SDL_CloseIO(stream);
-        return;
-    }
-    bool result = SDL_CloseIO(stream);
-    if (!result)
-    {
-        printf("ClosingFailed::%s", SDL_GetError());
-    }
-}
-bool loop(Context *context)
-{
+    Context *context = &((Context *)application.editors.data)[application.current_editor];
     TextBuffer *buffer = &context->buffer;
     Cursor *cursor = &context->cursor;
     Selection *selection = &context->selection;
@@ -53,7 +38,6 @@ bool loop(Context *context)
     SDL_Event e;
     float scroll_offset_y = 0.0;
     float scroll_offset_x = 0.0;
-    // bool should_focus_cursor = false; // Flag to "recenter" the view if an action was performed
     context->focus_cursor = false; // Reset the focus cursor flag
 
     while (SDL_PollEvent(&e) != 0)
@@ -66,16 +50,24 @@ bool loop(Context *context)
             if (selection->is_active)
                 clear_selection_text(selection, buffer, cursor);
 
-            text_add(buffer, cursor, e.text.text);
-            cursor_move_right(cursor, buffer);
-            context->focus_cursor = true;
+            if (application.mode == Command)
+            {
+                text_add(&application.command_buffer, &application.command_buffer_cursor, e.text.text);
+                cursor_move_right(&application.command_buffer_cursor, &application.command_buffer);
+            }
+            else
+            {
+                text_add(buffer, cursor, e.text.text);
+                cursor_move_right(cursor, buffer);
+                context->focus_cursor = true;
+            }
             break;
         case SDL_EVENT_QUIT:
             return false;
 
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
         {
-            Vector2I pos = get_cursor_pos_from_screen(e.button.x, e.button.y, last_view_offset, cursor->w, cursor->h);
+            Vector2I pos = get_cursor_pos_from_screen(e.button.x, e.button.y, last_view_offset);
             // Make sure to clamp the values between legal values.
             pos.y = MIN(MAX(0, pos.y), buffer->lines.length - 1);
             pos.x = MIN(MAX(0, pos.x), get_line_length(buffer, pos.y));
@@ -97,7 +89,7 @@ bool loop(Context *context)
                 if (selection->is_active)
                 {
 
-                    Vector2I pos = get_cursor_pos_from_screen(e.button.x, e.button.y, last_view_offset, cursor->w, cursor->h);
+                    Vector2I pos = get_cursor_pos_from_screen(e.button.x, e.button.y, last_view_offset);
                     // Make sure to clamp the values between legal values.
                     pos.y = MIN(MAX(0, pos.y), buffer->lines.length - 1);
                     pos.x = MIN(MAX(0, pos.x), get_line_length(buffer, pos.y));
@@ -132,16 +124,15 @@ bool loop(Context *context)
         }
     }
 
-    int win_w, win_h;
-    SDL_GetWindowSizeInPixels(win, &win_w, &win_h);
+    SDL_GetWindowSizeInPixels(win, &application.win_w, &application.win_h);
 
-    SDL_FRect offset = get_view_offset(last_view_offset, win_w, win_h, cursor, context->focus_cursor, buffer->lines.length, max_horizontal_characters, scroll_offset_x, scroll_offset_y);
+    SDL_FRect offset = get_view_offset(last_view_offset, cursor, context->focus_cursor, buffer->lines.length, max_horizontal_characters, scroll_offset_x, scroll_offset_y);
     last_view_offset = offset;
 
     render_selection(renderer, &context->selection, buffer, offset);
-    render_buffer(renderer, buffer, offset, cursor->w, cursor->h, win_h);
+    render_buffer(renderer, buffer, offset);
     render_cursor(renderer, cursor, offset);
-    render_bottom_bar(renderer, context, win_w, win_h);
+    render_bottom_bar(renderer, context);
 
     SDL_RenderPresent(renderer);
 
@@ -193,18 +184,21 @@ bool init()
 
     // Start sending SDL_TextInput events
     SDL_StartTextInput(win);
-    app_clock.time = SDL_GetTicks();
+    application.time = SDL_GetTicks();
 
     return true;
 }
 
 void quit(Context *context)
 {
+    clean_text(&application.command_buffer);
     clean_text(&context->buffer);
+    vector_free(&application.editors);
     SDL_StopTextInput(win);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(win);
     SDL_Quit();
+    TTF_CloseFont(font);
 }
 
 int main(int argc, char *argv[])
@@ -217,73 +211,31 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    char *file_name = argv[1];
-
-    struct stat sb;
-    if (stat(file_name, &sb) == -1)
-    {
-        if (errno == ENOENT)
-        {
-            stream = SDL_IOFromFile(file_name, "w+");
-        }
-        else
-        {
-            exit(EXIT_FAILURE);
-        }
-    }
-    else
-    {
-        stream = SDL_IOFromFile(file_name, "r+");
-    }
-
-    if (stream == NULL)
-    {
-        printf("SDL_IOFromFile::%s\n", SDL_GetError());
-        return 1;
-    }
-
-    file_size = SDL_GetIOSize(stream);
-    char *data = malloc(file_size);
-    SDL_ReadIO(stream, data, file_size);
-    SDL_CloseIO(stream);
+    char *filename = argv[1];
 
     Context context;
+    read_or_create_file(filename, &context);
 
     if (!init())
     {
-
         return 1;
     }
-    context.file_name = file_name;
-    context.cursor = new_cursor(0, 0, char_w_, char_h_);
-    context.buffer = text_new(&context.cursor, data);
-    context.selection = (Selection){.is_active = false};
 
-    free(data);
+    application.editors = vector_new(sizeof(Context));
+    vector_push(&application.editors, &context);
+    application.mode = Insert;
 
-    uint64_t fps_samples[FPS_SAMPLE_SIZE];
-    memset(fps_samples, 0, sizeof(fps_samples));
     size_t frame_counter = 0;
-    last_view_offset.x = get_line_number_offset_text(char_w_);
+    last_view_offset.x = get_line_number_offset_text();
 
-    while (loop(&context))
+    while (loop())
     {
         uint64_t now = SDL_GetTicks();
         if (frame_counter % FPS_SAMPLE_SIZE == 0)
         {
             uint64_t tot_delta = 0;
-
-            for (int i = 0; i < FPS_SAMPLE_SIZE; ++i)
-            {
-                tot_delta += fps_samples[i];
-            }
-            context.fps = 1000 / (now - app_clock.time);
+            application.fps = 1000 / (now - application.time);
         }
-
-        app_clock.delta_time = now - app_clock.time;
-        app_clock.time = now;
-
-        fps_samples[(frame_counter % FPS_SAMPLE_SIZE)] = app_clock.delta_time;
         frame_counter++;
     }
 

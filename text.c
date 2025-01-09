@@ -6,7 +6,6 @@
 #include "constants.h"
 #include "utils.h"
 
-int char_w_, char_h_;
 TTF_Font *font;
 TTF_Font *sm_font;
 int max_horizontal_characters = 0; // The line that has the most characters
@@ -18,7 +17,7 @@ void recompute_lines(TextBuffer *buffer)
     char *data = buffer->text.data;
     if (buffer->lines.data != NULL)
     {
-        vector_free(&buffer->lines);
+        vector_clear(&buffer->lines);
     }
     buffer->lines = vector_new(sizeof(Line));
     const char *ptr = data;
@@ -61,7 +60,7 @@ void recompute_lines(TextBuffer *buffer)
     } while (SDL_StepUTF8(&ptr, NULL) != 0);
 }
 
-TextBuffer text_new(Cursor *cursor, const char *initial_str)
+TextBuffer text_new(const char *initial_str)
 {
 
     TextBuffer buffer = {
@@ -76,8 +75,6 @@ TextBuffer text_new(Cursor *cursor, const char *initial_str)
     }
     vector_push(&buffer.text, "\0");
     recompute_lines(&buffer);
-    // debug_vec(&buffer.text);
-    // debug_vec(&buffer.lines);
     return buffer;
 }
 void text_remove_char(TextBuffer *buffer, Cursor *cursor)
@@ -185,7 +182,7 @@ char *get_text_to_render(char *text, int size)
     return result;
 }
 
-void render_line_counter(SDL_Renderer *renderer, int number, SDL_FRect *view_offset, int char_w, int char_h, int win_h)
+void render_line_counter(SDL_Renderer *renderer, int number, SDL_FRect *view_offset)
 {
     char line_text[LINE_NUMBER_SPACE + 1] = {0};
     char whitespace[LINE_NUMBER_SPACE + 1] = {0};
@@ -196,19 +193,19 @@ void render_line_counter(SDL_Renderer *renderer, int number, SDL_FRect *view_off
         whitespace[i] = ' ';
     }
     sprintf(line_text, "%s%i", whitespace, number + 1);
-    SDL_FRect rect_mask = {.x = 0.0, .h = char_h, .y = number * char_h + view_offset->y, .w = get_line_number_offset(char_w) - 4.0};
+    SDL_FRect rect_mask = {.x = 0.0, .h = application.char_h, .y = number * application.char_h + view_offset->y, .w = get_line_number_offset() - 4.0};
     render_fill_rectangle(renderer, LINE_COLOR, rect_mask);
-    render_text(renderer, line_text, LINE_TEXT_COLOR, 0, view_offset->y + number * char_h);
+    render_text(renderer, line_text, LINE_TEXT_COLOR, 0, view_offset->y + number * application.char_h);
 }
 
 // FIXME: this is bad for performance. we're basically creating a new texture every frame
 // for each line. It should be cached.
-void render_buffer(SDL_Renderer *renderer, TextBuffer *buffer, SDL_FRect view_offset, int char_w, int char_h, int win_h)
+void render_buffer(SDL_Renderer *renderer, TextBuffer *buffer, SDL_FRect view_offset)
 {
     Vector text = buffer->text;
 
-    int start_view_y = (int)SDL_fabs(view_offset.y / char_h);
-    int end_view_y = (win_h / char_h) + 1 + start_view_y;
+    int start_view_y = (int)SDL_fabs(view_offset.y / application.char_h);
+    int end_view_y = (application.win_h / application.char_h) + 1 + start_view_y;
 
     if (text.length > 0)
     {
@@ -223,14 +220,14 @@ void render_buffer(SDL_Renderer *renderer, TextBuffer *buffer, SDL_FRect view_of
 
             if (line->bytes == 0)
             {
-                render_line_counter(renderer, i, &view_offset, char_w, char_h, win_h);
+                render_line_counter(renderer, i, &view_offset);
                 free(text_render);
                 continue;
             }
             else
             {
-                render_text(renderer, text_render, TEXT_COLOR, view_offset.x, view_offset.y + i * char_h);
-                render_line_counter(renderer, i, &view_offset, char_w, char_h, win_h);
+                render_text(renderer, text_render, TEXT_COLOR, view_offset.x, view_offset.y + i * application.char_h);
+                render_line_counter(renderer, i, &view_offset);
                 free(text_render);
             }
         }
@@ -303,14 +300,13 @@ void clean_text(TextBuffer *buffer)
 {
     vector_free(&buffer->lines);
     vector_free(&buffer->text);
-    TTF_CloseFont(font);
 }
 bool init_text()
 {
     font = TTF_OpenFont("ttf/JetBrainsMono-Regular.ttf", FONT_SIZE);
     SDL_Surface *glyph = TTF_RenderGlyph_Blended(font, '?', (SDL_Color){0});
-    char_w_ = glyph->w;
-    char_h_ = glyph->h;
+    application.char_w = glyph->w;
+    application.char_h = glyph->h;
     SDL_DestroySurface(glyph);
 
     if (font == NULL)

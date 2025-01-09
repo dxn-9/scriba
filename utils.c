@@ -6,29 +6,73 @@
 #include "utils.h"
 #include "text.h"
 #include "constants.h"
+#include <sys/stat.h>
+#include <errno.h>
 
-Vector2I get_cursor_pos_from_screen(float x, float y, SDL_FRect last_view_offset, int char_w, int char_h)
+bool read_or_create_file(char *filename, Context *context)
+{
+
+    SDL_IOStream *stream = NULL;
+    struct stat sb;
+    if (stat(filename, &sb) == -1)
+    {
+        if (errno == ENOENT)
+        {
+            stream = SDL_IOFromFile(filename, "w+");
+        }
+        else
+        {
+            exit(EXIT_FAILURE);
+        }
+    }
+    else
+    {
+        stream = SDL_IOFromFile(filename, "r+");
+    }
+
+    if (stream == NULL)
+    {
+        printf("SDL_IOFromFile::%s\n", SDL_GetError());
+        return false;
+    }
+
+    // When need to copy the string, in case the char* filename gets freed
+    char *owned_filename = calloc(strlen(filename) + 1, sizeof(char));
+    strcpy(owned_filename, filename);
+    Sint64 file_size = SDL_GetIOSize(stream);
+    char *data = malloc(file_size);
+    SDL_ReadIO(stream, data, file_size);
+    SDL_CloseIO(stream);
+
+    context->filename = owned_filename;
+    context->cursor = new_cursor(0, 0);
+    context->buffer = text_new(data);
+    context->selection = (Selection){.is_active = false};
+    free(data);
+    return true;
+}
+
+Vector2I get_cursor_pos_from_screen(float x, float y, SDL_FRect last_view_offset)
 {
 
     Vector2I vec = {.x = 0, .y = 0};
-    float line_number_offset = get_line_number_offset_text(char_w);
-    int line_scroll_y = SDL_fabs(last_view_offset.y / char_h);
-    int line_scroll_x = SDL_fabs((last_view_offset.x - line_number_offset) / char_w);
+    float line_number_offset = get_line_number_offset_text();
+    int line_scroll_y = SDL_fabs(last_view_offset.y / application.char_h);
+    int line_scroll_x = SDL_fabs((last_view_offset.x - line_number_offset) / application.char_w);
 
-    int pos_x = ((x - line_number_offset) / char_w) + line_scroll_x;
+    int pos_x = ((x - line_number_offset) / application.char_w) + line_scroll_x;
     vec.x = pos_x;
-    vec.y = (y / char_h) + line_scroll_y;
+    vec.y = (y / application.char_h) + line_scroll_y;
     return vec;
 }
 
-int get_line_number_offset(int char_w)
+int get_line_number_offset()
 {
-    return char_w * LINE_NUMBER_SPACE;
+    return application.char_w * LINE_NUMBER_SPACE;
 }
-int get_line_number_offset_text(int char_w)
+int get_line_number_offset_text()
 {
-    // Adds a bit of offset
-    return get_line_number_offset(char_w) + TEXT_PADDING;
+    return get_line_number_offset() + TEXT_PADDING;
 }
 
 int get_view_whitespace(char *text, int size)
@@ -44,17 +88,17 @@ int get_view_whitespace(char *text, int size)
     return tabs_num * TABS_VIEW_SIZE;
 }
 
-SDL_FRect get_view_offset(SDL_FRect previous_offset, int win_w, int win_h, Cursor *cursor,
+SDL_FRect get_view_offset(SDL_FRect previous_offset, Cursor *cursor,
                           bool should_focus_cursor, int max_v_lines, int max_h_lines,
                           float scroll_x, float scroll_y)
 {
     SDL_FRect offset = previous_offset;
 
-    int screen_chars_x = (win_w - get_line_number_offset_text(cursor->w)) / cursor->w;
-    int screen_chars_y = win_h / cursor->h;
+    int screen_chars_x = (application.win_w - get_line_number_offset_text()) / application.char_w;
+    int screen_chars_y = application.win_h / application.char_h;
 
-    int offset_x = SDL_abs((previous_offset.x - get_line_number_offset_text(cursor->w)) / cursor->w);
-    int offset_y = SDL_abs((previous_offset.y / cursor->h));
+    int offset_x = SDL_abs((previous_offset.x - get_line_number_offset_text()) / application.char_w);
+    int offset_y = SDL_abs((previous_offset.y / application.char_h));
 
     int min_x = offset_x + HORIZONTAL_VIEW_OFFSET;
     int max_x = min_x + screen_chars_x - (2 * HORIZONTAL_VIEW_OFFSET);
@@ -66,27 +110,27 @@ SDL_FRect get_view_offset(SDL_FRect previous_offset, int win_w, int win_h, Curso
     {
         if (cursor->view_x > max_x)
         {
-            offset.x -= (cursor->view_x - max_x) * cursor->w;
+            offset.x -= (cursor->view_x - max_x) * application.char_w;
         }
         if (MAX(cursor->view_x, HORIZONTAL_VIEW_OFFSET) < min_x)
         {
-            offset.x += SDL_abs(cursor->view_x - min_x) * cursor->w;
+            offset.x += SDL_abs(cursor->view_x - min_x) * application.char_w;
         }
         if (cursor->y > max_y)
         {
-            offset.y -= (cursor->y - max_y) * cursor->h;
+            offset.y -= (cursor->y - max_y) * application.char_h;
         }
         if (MAX(cursor->y, VERTICAL_VIEW_OFFSET) < min_y)
         {
-            offset.y += SDL_abs(cursor->y - min_y) * cursor->h;
+            offset.y += SDL_abs(cursor->y - min_y) * application.char_h;
         }
     }
 
     offset.y += scroll_y;
 
-    offset.x = MIN(offset.x, get_line_number_offset_text(cursor->w));
+    offset.x = MIN(offset.x, get_line_number_offset_text());
     offset.y = MIN(offset.y, 0.0);
-    offset.y = MAX(offset.y, -SDL_abs(((max_v_lines + VERTICAL_VIEW_OFFSET) - screen_chars_y) * cursor->h));
+    offset.y = MAX(offset.y, -SDL_abs(((max_v_lines + VERTICAL_VIEW_OFFSET) - screen_chars_y) * application.char_h));
 
     return offset;
 }
@@ -128,7 +172,6 @@ void render_text(SDL_Renderer *renderer, char *text, SDL_Color color, int x, int
     if (surface == NULL)
     {
         printf("Error creating surface in render_text: %s\n", SDL_GetError());
-        // printf("Text info: %s %i", text, size);
         exit(1);
     }
     SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
@@ -172,10 +215,10 @@ void render_fill_rectangle(SDL_Renderer *renderer, SDL_Color color, SDL_FRect re
 SDL_FRect selection_rect(float x, float y, float w, SDL_FRect *offset)
 {
     SDL_FRect rect = {
-        .x = x * char_w_ + offset->x,
-        .y = y * char_h_ + offset->y,
-        .w = w * char_w_,
-        .h = char_h_};
+        .x = x * application.char_w + offset->x,
+        .y = y * application.char_h + offset->y,
+        .w = w * application.char_w,
+        .h = application.char_h};
     return rect;
 }
 // TODO: I can probably do a bitmask to see the size of the next character. For now i'll do it the inefficent way.

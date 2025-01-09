@@ -3,8 +3,17 @@
 #include <stdio.h>
 
 #include "utils.h"
+#include "application.h"
 #define BOTTOM_BAR_H 20
 
+void render_commad_buffer(SDL_Renderer *renderer, int bar_y)
+{
+    // Length 1 means that theres only the \0 character.
+    if (application.command_buffer.text.length > 1)
+    {
+        render_text(renderer, application.command_buffer.text.data, (SDL_Color){0, 255, 0, 255}, 300, bar_y);
+    }
+}
 void render_selection_bar(SDL_Renderer *renderer, Context *context, int bar_y)
 {
     SDL_assert(&context->selection != NULL);
@@ -27,26 +36,26 @@ void render_cursor_position(SDL_Renderer *renderer, Context *context, int bar_y)
 void render_fps_counter(SDL_Renderer *renderer, Context *context, int bar_y)
 {
     char fps_str[40];
-
-    sprintf(fps_str, "FPS:%0.f", context->fps);
+    sprintf(fps_str, "FPS:%0.f", application.fps);
     render_text(renderer, fps_str, (SDL_Color){0, 255, 0, 255}, 0, bar_y);
 }
 
-void render_file_name(SDL_Renderer *renderer, Context *context, int bar_y, int win_w)
+void render_filename(SDL_Renderer *renderer, Context *context, int bar_y)
 {
-    int x = win_w - (strlen(context->file_name) + 1) * context->cursor.w;
-    render_text(renderer, context->file_name, (SDL_Color){0, 255, 0, 255}, x, bar_y);
+    int x = application.win_w - (strlen(context->filename) + 1) * application.char_w;
+    render_text(renderer, context->filename, (SDL_Color){0, 255, 0, 255}, x, bar_y);
 }
 
-void render_bottom_bar(SDL_Renderer *renderer, Context *context, int win_w, int win_h)
+void render_bottom_bar(SDL_Renderer *renderer, Context *context)
 {
     SDL_Color color = {100, 100, 100, 255};
-    int bar_y = win_h - BOTTOM_BAR_H;
-    SDL_FRect rect = {0, bar_y, win_w, BOTTOM_BAR_H};
+    int bar_y = application.win_h - BOTTOM_BAR_H;
+    SDL_FRect rect = {0, bar_y, application.win_w, BOTTOM_BAR_H};
     bar_y -= 5;
     render_fill_rectangle(renderer, color, rect);
     render_fps_counter(renderer, context, bar_y);
     render_cursor_position(renderer, context, bar_y);
     render_selection_bar(renderer, context, bar_y);
-    render_file_name(renderer, context, bar_y, win_w);
+    render_filename(renderer, context, bar_y);
+    render_commad_buffer(renderer, bar_y);
 }

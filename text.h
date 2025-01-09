@@ -47,10 +47,8 @@ extern int max_horizontal_characters;
 extern TTF_Font *font;
 extern const char *initial_text;
 void clean_text(TextBuffer *buffer);
-extern int char_w_;
-extern int char_h_;
 
-TextBuffer text_new(Cursor *cursor, const char *initialStr);
+TextBuffer text_new(const char *initialStr);
 void text_remove_char(TextBuffer *buffer, Cursor *cursor);
 int text_add(TextBuffer *buffer, Cursor *cursor, const char *str); // Returns the last index in the buffer of the text that was inserted
 int get_line_length(TextBuffer *buffer, int line);
@@ -67,7 +65,7 @@ void selection_start(Selection *selection, Cursor *cursor, TextBuffer *buffer);
 void selection_delete(Selection *selection, TextBuffer *buffer);
 void selection_update(Selection *selection, Cursor *cursor, TextBuffer *buffer);
 
-void render_buffer(SDL_Renderer *renderer, TextBuffer *text, SDL_FRect view_offset, int char_w, int char_h, int win_h);
+void render_buffer(SDL_Renderer *renderer, TextBuffer *text, SDL_FRect view_offset);
 void render_selection(SDL_Renderer *renderer, Selection *selection, TextBuffer *text, SDL_FRect view_offset);
 
 #endif // _TEXT_H

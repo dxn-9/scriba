@@ -90,6 +90,10 @@ void vector_push(Vector *vec, const void *element)
     vec->length++;
 }
 
+void vector_clear(Vector *vec)
+{
+    vec->length = 0;
+}
 void vector_free(Vector *vec)
 {
     vec->element_size = 0;
