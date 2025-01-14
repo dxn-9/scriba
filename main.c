@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "bottom_bar.h"
+#include "overlay.h"
 #include "text.h"
 #include "application.h"
 #include "action.h"
@@ -15,34 +15,28 @@
 #include "utils.h"
 #include "constants.h"
 
-SDL_Window *win = NULL;
-SDL_Renderer *renderer;
 SDL_FRect last_view_offset = {0};
 bool is_mouse_down = false;
 
 bool loop()
 {
-    Context *context = &((Context *)application.editors.data)[application.current_editor];
-    TextBuffer *buffer = &context->buffer;
-    Cursor *cursor;
-    Selection *selection = &context->selection;
+    Editor *editor = &((Editor *)application.editors.data)[application.current_editor];
+    TextBuffer *buffer = &editor->buffer;
+    Cursor *cursor = &editor->cursor;
+    Selection *selection = &editor->selection;
 
-    if (application.mode == Insert)
-    {
-        cursor = &context->cursor;
-    }
-    else
+    if (application.mode == Command)
     {
         cursor = &application.command_buffer_cursor;
     }
 
-    SDL_SetRenderDrawColor(renderer, BG_COLOR.r, BG_COLOR.g, BG_COLOR.b, BG_COLOR.a);
-    SDL_RenderClear(renderer);
+    SDL_SetRenderDrawColor(application.renderer, BG_COLOR.r, BG_COLOR.g, BG_COLOR.b, BG_COLOR.a);
+    SDL_RenderClear(application.renderer);
 
     SDL_Event e;
     float scroll_offset_y = 0.0;
     float scroll_offset_x = 0.0;
-    context->focus_cursor = false; // Reset the focus cursor flag
+    editor->focus_cursor = false; // Reset the focus cursor flag
 
     while (SDL_PollEvent(&e) != 0)
     {
@@ -63,7 +57,7 @@ bool loop()
             {
                 text_add(buffer, cursor, e.text.text);
                 cursor_move_right(cursor, buffer);
-                context->focus_cursor = true;
+                editor->focus_cursor = true;
             }
             break;
         case SDL_EVENT_QUIT:
@@ -83,7 +77,7 @@ bool loop()
             {
                 selection_cancel(selection);
             }
-            context->focus_cursor = true;
+            editor->focus_cursor = true;
         }
         break;
 
@@ -105,7 +99,7 @@ bool loop()
                 {
                     selection_start(selection, cursor, buffer);
                 }
-                context->focus_cursor = true;
+                editor->focus_cursor = true;
             }
             break;
         case SDL_EVENT_MOUSE_BUTTON_UP:
@@ -122,21 +116,18 @@ bool loop()
             Action action = get_action(e);
             if (action == Quit)
                 return false;
-            Dispatch(context, e, action);
+            Dispatch(editor, e, action);
         }
         break;
         }
     }
 
-    SDL_GetWindowSizeInPixels(win, &application.win_w, &application.win_h);
+    SDL_GetWindowSizeInPixels(application.window, &application.win_w, &application.win_h);
 
-    SDL_FRect offset = get_view_offset(last_view_offset, cursor, context->focus_cursor, buffer->lines.length, max_horizontal_characters, scroll_offset_x, scroll_offset_y);
-    SDL_FRect cursor_offset;
-    if (application.mode == Insert)
-        cursor_offset = offset;
-    else
+    SDL_FRect offset = get_view_offset(last_view_offset, cursor, editor->focus_cursor, buffer->lines.length, max_horizontal_characters, scroll_offset_x, scroll_offset_y);
+    SDL_FRect cursor_offset = offset;
+    if (application.mode == Command)
     {
-
         int bar_y = application.win_h - 20;
         SDL_FRect rect = {
             .w = 0,
@@ -147,13 +138,13 @@ bool loop()
     }
     last_view_offset = offset;
 
-    render_selection(renderer, &context->selection, buffer, offset);
-    render_buffer(renderer, buffer, offset);
-    render_bottom_bar(renderer, context);
-    render_cursor(renderer, cursor, cursor_offset);
-    render_list_editors(renderer);
+    render_selection(&editor->selection, buffer, offset);
+    render_buffer(buffer, offset);
+    render_bottom_bar(editor);
+    render_cursor(cursor, cursor_offset);
+    render_list_editors();
 
-    SDL_RenderPresent(renderer);
+    SDL_RenderPresent(application.renderer);
 
     return true;
 }
@@ -169,23 +160,23 @@ bool init()
 
     SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_INPUT_FOCUS | SDL_WINDOW_MOUSE_FOCUS;
 
-    win = SDL_CreateWindow("Scriba", DEFAULT_WIDTH, DEFAULT_HEIGHT, flags);
-    if (win == NULL)
+    application.window = SDL_CreateWindow("Scriba", DEFAULT_WIDTH, DEFAULT_HEIGHT, flags);
+    if (application.window == NULL)
     {
         printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
         return false;
     }
 
-    renderer = SDL_CreateRenderer(win, NULL);
-    if (renderer == NULL)
+    application.renderer = SDL_CreateRenderer(application.window, NULL);
+    if (application.renderer == NULL)
     {
-        printf("Failed to create renderer %s\n", SDL_GetError());
+        printf("Failed to create application.renderer %s\n", SDL_GetError());
         return false;
     }
-    if (!SDL_SetRenderVSync(renderer, 1))
+    if (!SDL_SetRenderVSync(application.renderer, 1))
     {
 
-        printf("Failed to set renderer vsync %s\n", SDL_GetError());
+        printf("Failed to set application.renderer vsync %s\n", SDL_GetError());
         return false;
     }
     if (!TTF_Init())
@@ -202,7 +193,7 @@ bool init()
     }
 
     // Start sending SDL_TextInput events
-    SDL_StartTextInput(win);
+    SDL_StartTextInput(application.window);
     application.time = SDL_GetTicks();
 
     return true;
@@ -213,13 +204,13 @@ void quit()
     clean_text(&application.command_buffer);
     for (int i = 0; i < application.editors.length; i++)
     {
-        Context *editor = &((Context *)application.editors.data)[i];
+        Editor *editor = &((Editor *)application.editors.data)[i];
         clean_text(&editor->buffer);
     }
     vector_free(&application.editors);
-    SDL_StopTextInput(win);
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(win);
+    SDL_StopTextInput(application.window);
+    SDL_DestroyRenderer(application.renderer);
+    SDL_DestroyWindow(application.window);
     SDL_Quit();
     TTF_CloseFont(font);
 }
@@ -233,20 +224,19 @@ int main(int argc, char *argv[])
         printf("Usage: scriba <filename> [<filename2> ...]\n");
         return 1;
     }
-    printf("argc: %i\n", argc);
 
     if (!init())
     {
         return 1;
     }
 
-    application.editors = vector_new(sizeof(Context));
+    application.editors = vector_new(sizeof(Editor));
     for (int i = 1; i < argc; i++)
     {
         char *filename = argv[i];
-        Context context;
-        read_or_create_file(filename, &context);
-        vector_push(&application.editors, &context);
+        Editor editor;
+        read_or_create_file(filename, &editor);
+        vector_push(&application.editors, &editor);
     }
     application.mode = Insert;
 
@@ -257,11 +247,9 @@ int main(int argc, char *argv[])
     {
         uint64_t now = SDL_GetTicks();
         if (frame_counter % FPS_SAMPLE_SIZE == 0)
-        {
-            uint64_t tot_delta = 0;
-            application.fps = 1000 / (now - application.time);
-        }
+            application.fps = 1000.0 / (double)(now - application.time);
         frame_counter++;
+        update_time();
     }
 
     quit();

@@ -2,13 +2,13 @@
 #include "utils.h"
 #include "text.h"
 
-void action_null(Context *context, SDL_Event event) { return; }
-void action_save_file(Context *context, SDL_Event event)
+void action_null(Editor *editor, SDL_Event event) { return; }
+void action_save_file(Editor *editor, SDL_Event event)
 {
 
-    SDL_IOStream *stream = SDL_IOFromFile(context->filename, "w");
-    size_t size = SDL_WriteIO(stream, context->buffer.text.data, context->buffer.text.length - 1);
-    if (size < context->buffer.text.length - 1)
+    SDL_IOStream *stream = SDL_IOFromFile(editor->filename, "w");
+    size_t size = SDL_WriteIO(stream, editor->buffer.text.data, editor->buffer.text.length - 1);
+    if (size < editor->buffer.text.length - 1)
     {
         printf("SaveFailed::%s", SDL_GetError());
         SDL_CloseIO(stream);
@@ -20,9 +20,17 @@ void action_save_file(Context *context, SDL_Event event)
         printf("ClosingFailed::%s", SDL_GetError());
     }
 }
-void action_select_all(Context *context, SDL_Event event)
+void action_delete_file(Editor *editor, SDL_Event event)
 {
-    TextBuffer *buffer = &context->buffer;
+    if (!SDL_RemovePath(editor->filename))
+    {
+        printf("RemovePath Failed::%s\n", SDL_GetError());
+    }
+    vector_remove(&application.editors, application.current_editor);
+}
+void action_select_all(Editor *editor, SDL_Event event)
+{
+    TextBuffer *buffer = &editor->buffer;
 
     Cursor start_cursor = new_cursor(0, 0);
     int last_line_index = buffer->lines.length - 1;
@@ -33,31 +41,31 @@ void action_select_all(Context *context, SDL_Event event)
 
     Cursor end_cursor = new_cursor((last_line->end - last_line->start) - 1, last_line_index);
     cursor_update_view_x(&end_cursor, buffer);
-    selection_start(&context->selection, &start_cursor, buffer);
-    selection_update(&context->selection, &end_cursor, buffer);
+    selection_start(&editor->selection, &start_cursor, buffer);
+    selection_update(&editor->selection, &end_cursor, buffer);
 }
-void action_copy(Context *context, SDL_Event event)
+void action_copy(Editor *editor, SDL_Event event)
 {
 
-    order_selection(&context->selection);
-    handle_copy(&context->selection, &context->buffer);
-    selection_cancel(&context->selection);
-    context->focus_cursor = true;
+    order_selection(&editor->selection);
+    handle_copy(&editor->selection, &editor->buffer);
+    selection_cancel(&editor->selection);
+    editor->focus_cursor = true;
 }
-void action_paste(Context *context, SDL_Event event)
+void action_paste(Editor *editor, SDL_Event event)
 {
-    int buffer_index = handle_paste(&context->selection, &context->buffer, &context->cursor);
-    cursor_set_from_buffer_index(&context->cursor, &context->buffer, buffer_index);
-    context->focus_cursor = true;
+    int buffer_index = handle_paste(&editor->selection, &editor->buffer, &editor->cursor);
+    cursor_set_from_buffer_index(&editor->cursor, &editor->buffer, buffer_index);
+    editor->focus_cursor = true;
 }
-void action_cut(Context *context, SDL_Event event)
+void action_cut(Editor *editor, SDL_Event event)
 {
 
-    order_selection(&context->selection);
-    handle_cut(&context->selection, &context->buffer);
-    context->focus_cursor = true;
+    order_selection(&editor->selection);
+    handle_cut(&editor->selection, &editor->buffer);
+    editor->focus_cursor = true;
 }
-void action_move_left(Context *context, SDL_Event event)
+void action_move_left(Editor *editor, SDL_Event event)
 {
     if (application.mode == Command)
     {
@@ -67,20 +75,20 @@ void action_move_left(Context *context, SDL_Event event)
     if (application.mode == List)
         return;
 
-    if (event.key.mod == SDL_KMOD_LSHIFT && !context->selection.is_active)
-        selection_start(&context->selection, &context->cursor, &context->buffer);
-    cursor_move_left(&context->cursor, &context->buffer);
-    selection_update(&context->selection, &context->cursor, &context->buffer);
+    if (event.key.mod == SDL_KMOD_LSHIFT && !editor->selection.is_active)
+        selection_start(&editor->selection, &editor->cursor, &editor->buffer);
+    cursor_move_left(&editor->cursor, &editor->buffer);
+    selection_update(&editor->selection, &editor->cursor, &editor->buffer);
 
-    if (!(event.key.mod == SDL_KMOD_LSHIFT) && context->selection.is_active)
+    if (!(event.key.mod == SDL_KMOD_LSHIFT) && editor->selection.is_active)
     {
-        selection_cancel(&context->selection);
+        selection_cancel(&editor->selection);
     }
 
-    context->focus_cursor = true;
+    editor->focus_cursor = true;
 }
 
-void action_move_up(Context *context, SDL_Event event)
+void action_move_up(Editor *editor, SDL_Event event)
 {
     if (application.mode == Command)
         return;
@@ -89,17 +97,17 @@ void action_move_up(Context *context, SDL_Event event)
         application.current_editor = MAX(application.current_editor - 1, 0);
         return;
     }
-    if (event.key.mod == SDL_KMOD_LSHIFT && !context->selection.is_active)
-        selection_start(&context->selection, &context->cursor, &context->buffer);
-    cursor_move_up(&context->cursor, &context->buffer);
-    selection_update(&context->selection, &context->cursor, &context->buffer);
-    if (!(event.key.mod == SDL_KMOD_LSHIFT) && context->selection.is_active)
+    if (event.key.mod == SDL_KMOD_LSHIFT && !editor->selection.is_active)
+        selection_start(&editor->selection, &editor->cursor, &editor->buffer);
+    cursor_move_up(&editor->cursor, &editor->buffer);
+    selection_update(&editor->selection, &editor->cursor, &editor->buffer);
+    if (!(event.key.mod == SDL_KMOD_LSHIFT) && editor->selection.is_active)
     {
-        selection_cancel(&context->selection);
+        selection_cancel(&editor->selection);
     }
-    context->focus_cursor = true;
+    editor->focus_cursor = true;
 }
-void action_move_right(Context *context, SDL_Event event)
+void action_move_right(Editor *editor, SDL_Event event)
 {
     if (application.mode == Command)
     {
@@ -109,17 +117,17 @@ void action_move_right(Context *context, SDL_Event event)
     if (application.mode == List)
         return;
 
-    if (event.key.mod == SDL_KMOD_LSHIFT && !context->selection.is_active)
-        selection_start(&context->selection, &context->cursor, &context->buffer);
-    cursor_move_right(&context->cursor, &context->buffer);
-    selection_update(&context->selection, &context->cursor, &context->buffer);
-    if (!(event.key.mod == SDL_KMOD_LSHIFT) && context->selection.is_active)
+    if (event.key.mod == SDL_KMOD_LSHIFT && !editor->selection.is_active)
+        selection_start(&editor->selection, &editor->cursor, &editor->buffer);
+    cursor_move_right(&editor->cursor, &editor->buffer);
+    selection_update(&editor->selection, &editor->cursor, &editor->buffer);
+    if (!(event.key.mod == SDL_KMOD_LSHIFT) && editor->selection.is_active)
     {
-        selection_cancel(&context->selection);
+        selection_cancel(&editor->selection);
     }
-    context->focus_cursor = true;
+    editor->focus_cursor = true;
 }
-void action_move_down(Context *context, SDL_Event event)
+void action_move_down(Editor *editor, SDL_Event event)
 {
     if (application.mode == Command)
         return;
@@ -128,59 +136,60 @@ void action_move_down(Context *context, SDL_Event event)
         application.current_editor = MIN(application.current_editor + 1, application.editors.length - 1);
         return;
     }
-    if (event.key.mod == SDL_KMOD_LSHIFT && !context->selection.is_active)
-        selection_start(&context->selection, &context->cursor, &context->buffer);
-    cursor_move_down(&context->cursor, &context->buffer);
-    selection_update(&context->selection, &context->cursor, &context->buffer);
-    if (!(event.key.mod == SDL_KMOD_LSHIFT) && context->selection.is_active)
+    if (event.key.mod == SDL_KMOD_LSHIFT && !editor->selection.is_active)
+        selection_start(&editor->selection, &editor->cursor, &editor->buffer);
+    cursor_move_down(&editor->cursor, &editor->buffer);
+    selection_update(&editor->selection, &editor->cursor, &editor->buffer);
+    if (!(event.key.mod == SDL_KMOD_LSHIFT) && editor->selection.is_active)
     {
-        selection_cancel(&context->selection);
+        selection_cancel(&editor->selection);
     }
-    context->focus_cursor = true;
+    editor->focus_cursor = true;
 }
-void action_debug_print(Context *context, SDL_Event event)
+void action_debug_print(Editor *editor, SDL_Event event)
 {
 
     printf("TextBuffer: \n");
-    debug_vec(&context->buffer.text);
+    debug_vec(&editor->buffer.text);
     printf("LinesBuffer: \n");
-    debug_vec(&context->buffer.lines);
+    debug_vec(&editor->buffer.lines);
     printf("CommandBuffer: \n");
     debug_vec(&application.command_buffer.text);
 }
-void action_command_mode(Context *context, SDL_Event event)
+void action_command_mode(Editor *editor, SDL_Event event)
 {
     clean_text(&application.command_buffer);
     application.command_buffer_cursor = new_cursor(0, 0);
     application.command_buffer = text_new("");
     application.mode = Command;
 }
-void action_list_mode(Context *context, SDL_Event event)
+void action_list_mode(Editor *editor, SDL_Event event)
 {
     application.mode = List;
+    SDL_StopTextInput(application.window);
 }
-void action_insert_mode(Context *context, SDL_Event event)
+void action_insert_mode(Editor *editor, SDL_Event event)
 {
-    action_command_mode(context, event); // Clean up the command buffer
+    action_command_mode(editor, event); // Clean up the command buffer
+    SDL_StartTextInput(application.window);
     application.mode = Insert;
 }
 
-void action_insert_tab(Context *context, SDL_Event event)
+void action_insert_tab(Editor *editor, SDL_Event event)
 {
     if (application.mode == Command)
         return;
 
-    if (context->selection.is_active)
-        clear_selection_text(&context->selection, &context->buffer, &context->cursor);
-    text_add(&context->buffer, &context->cursor, "\t");
-    cursor_move_right(&context->cursor, &context->buffer);
-    selection_update(&context->selection, &context->cursor, &context->buffer);
-    context->focus_cursor = true;
+    if (editor->selection.is_active)
+        clear_selection_text(&editor->selection, &editor->buffer, &editor->cursor);
+    text_add(&editor->buffer, &editor->cursor, "\t");
+    cursor_move_right(&editor->cursor, &editor->buffer);
+    selection_update(&editor->selection, &editor->cursor, &editor->buffer);
+    editor->focus_cursor = true;
 }
 
-void action_insert_line(Context *context, SDL_Event event)
+void action_insert_line(Editor *editor, SDL_Event event)
 {
-    printf("Here!\n");
     switch (application.mode)
     {
     case Command:
@@ -192,11 +201,11 @@ void action_insert_line(Context *context, SDL_Event event)
         // Edit command - open or create a new editor
         if (command[0] == 'e' && command[1] == ' ')
         {
-            Context new_editor;
+            Editor new_editor;
             read_or_create_file(command + 2, &new_editor);
             vector_push(&application.editors, &new_editor);
             application.current_editor += 1;
-            application.mode = Insert;
+            action_insert_mode(editor, event);
             return;
         }
         // Switch command - switch to an open editor by index
@@ -230,34 +239,34 @@ void action_insert_line(Context *context, SDL_Event event)
     break;
     case Insert:
     {
-        if (context->selection.is_active)
-            clear_selection_text(&context->selection, &context->buffer, &context->cursor);
-        text_add(&context->buffer, &context->cursor, "\n");
-        cursor_move_down(&context->cursor, &context->buffer);
-        context->focus_cursor = true;
+        if (editor->selection.is_active)
+            clear_selection_text(&editor->selection, &editor->buffer, &editor->cursor);
+        text_add(&editor->buffer, &editor->cursor, "\n");
+        cursor_move_down(&editor->cursor, &editor->buffer);
+        editor->focus_cursor = true;
     }
     break;
     }
 }
-void action_delete_char(Context *context, SDL_Event event)
+void action_delete_char(Editor *editor, SDL_Event event)
 {
     if (application.mode == Command)
     {
         text_remove_char(&application.command_buffer, &application.command_buffer_cursor);
         return;
     }
-    if (context->selection.is_active)
+    if (editor->selection.is_active)
     {
-        clear_selection_text(&context->selection, &context->buffer, &context->cursor);
+        clear_selection_text(&editor->selection, &editor->buffer, &editor->cursor);
     }
     else
     {
-        text_remove_char(&context->buffer, &context->cursor);
+        text_remove_char(&editor->buffer, &editor->cursor);
     }
-    context->focus_cursor = true;
+    editor->focus_cursor = true;
 }
 
-typedef void (*ActionFunction)(Context *, SDL_Event);
+typedef void (*ActionFunction)(Editor *, SDL_Event);
 ActionFunction actionFunctions[] = {
     &action_null,
     &action_copy,
@@ -275,11 +284,12 @@ ActionFunction actionFunctions[] = {
     &action_command_mode,
     &action_list_mode,
     &action_insert_mode,
-    &action_save_file};
+    &action_save_file,
+    &action_delete_file};
 
-inline void Dispatch(Context *context, SDL_Event event, Action action)
+inline void Dispatch(Editor *editor, SDL_Event event, Action action)
 {
-    actionFunctions[action](context, event);
+    actionFunctions[action](editor, event);
 }
 
 // ----- Keybindings for the actions ------
@@ -329,6 +339,10 @@ bool is_save(SDL_Event event)
 #else
     return event.key.key == SDLK_S && e.key.mod & SDL_KMOD_CTRL;
 #endif
+}
+bool is_delete_file(SDL_Event event)
+{
+    return event.key.key == SDLK_X && application.mode == List;
 }
 
 bool is_select_all(SDL_Event event)
@@ -384,6 +398,8 @@ Action get_action(SDL_Event event)
         return Copy;
     if (is_save(event))
         return SaveFile;
+    if (is_delete_file(event))
+        return DeleteFile;
     if (is_paste(event))
         return Paste;
     if (is_cut(event))

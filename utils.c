@@ -9,7 +9,7 @@
 #include <sys/stat.h>
 #include <errno.h>
 
-bool read_or_create_file(char *filename, Context *context)
+bool read_or_create_file(char *filename, Editor *editor)
 {
 
     SDL_IOStream *stream = NULL;
@@ -44,10 +44,10 @@ bool read_or_create_file(char *filename, Context *context)
     SDL_ReadIO(stream, data, file_size);
     SDL_CloseIO(stream);
 
-    context->filename = owned_filename;
-    context->cursor = new_cursor(0, 0);
-    context->buffer = text_new(data);
-    context->selection = (Selection){.is_active = false};
+    editor->filename = owned_filename;
+    editor->cursor = new_cursor(0, 0);
+    editor->buffer = text_new(data);
+    editor->selection = (Selection){.is_active = false};
     free(data);
     return true;
 }
@@ -166,7 +166,7 @@ void clear_selection_text(Selection *selection, TextBuffer *buffer, Cursor *curs
     cursor_set_y(cursor, buffer, selection_start_y);
     cursor_set_x(cursor, buffer, selection_start_x);
 }
-void render_text(SDL_Renderer *renderer, char *text, SDL_Color color, int x, int y)
+void render_text(char *text, SDL_Color color, int x, int y)
 {
     SDL_Surface *surface = TTF_RenderText_Blended(font, text, 0, color);
     if (surface == NULL)
@@ -174,7 +174,7 @@ void render_text(SDL_Renderer *renderer, char *text, SDL_Color color, int x, int
         printf("Error creating surface in render_text: %s\n", SDL_GetError());
         exit(1);
     }
-    SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_Texture *texture = SDL_CreateTextureFromSurface(application.renderer, surface);
     if (texture == NULL)
     {
         printf("Error creating texture in render_text: %s\n", SDL_GetError());
@@ -193,7 +193,7 @@ void render_text(SDL_Renderer *renderer, char *text, SDL_Color color, int x, int
     SDL_FRect dest_rectangle = {
         x, y, texW, texH};
 
-    if (!SDL_RenderTexture(renderer, texture, NULL, &dest_rectangle))
+    if (!SDL_RenderTexture(application.renderer, texture, NULL, &dest_rectangle))
     {
         printf("RenderCopy failed: %s", SDL_GetError());
         exit(1);
@@ -203,21 +203,21 @@ void render_text(SDL_Renderer *renderer, char *text, SDL_Color color, int x, int
     SDL_DestroyTexture(texture);
 }
 
-void render_rectangle(SDL_Renderer *renderer, SDL_Color color, SDL_FRect rect)
+void render_rectangle(SDL_Color color, SDL_FRect rect)
 {
     Uint8 r, g, b, a;
-    SDL_GetRenderDrawColor(renderer, &r, &g, &b, &a);
-    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
-    SDL_RenderRect(renderer, &rect);
-    SDL_SetRenderDrawColor(renderer, r, g, b, a);
+    SDL_GetRenderDrawColor(application.renderer, &r, &g, &b, &a);
+    SDL_SetRenderDrawColor(application.renderer, color.r, color.g, color.b, color.a);
+    SDL_RenderRect(application.renderer, &rect);
+    SDL_SetRenderDrawColor(application.renderer, r, g, b, a);
 }
-void render_fill_rectangle(SDL_Renderer *renderer, SDL_Color color, SDL_FRect rect)
+void render_fill_rectangle(SDL_Color color, SDL_FRect rect)
 {
     Uint8 r, g, b, a;
-    SDL_GetRenderDrawColor(renderer, &r, &g, &b, &a);
-    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
-    SDL_RenderFillRect(renderer, &rect);
-    SDL_SetRenderDrawColor(renderer, r, g, b, a);
+    SDL_GetRenderDrawColor(application.renderer, &r, &g, &b, &a);
+    SDL_SetRenderDrawColor(application.renderer, color.r, color.g, color.b, color.a);
+    SDL_RenderFillRect(application.renderer, &rect);
+    SDL_SetRenderDrawColor(application.renderer, r, g, b, a);
 }
 
 SDL_FRect selection_rect(float x, float y, float w, SDL_FRect *offset)

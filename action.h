@@ -2,7 +2,7 @@
 #define _ACTION_H
 #include "SDL3/SDL.h"
 
-typedef struct Context Context;
+typedef struct Editor Editor;
 
 typedef enum
 {
@@ -23,11 +23,12 @@ typedef enum
     ListMode,
     InsertMode,
     SaveFile,
+    DeleteFile,
     Quit
 } Action;
 
-void Dispatch(Context *context, SDL_Event event, Action action);
-void (*ActionPtr)(Context *);
+void Dispatch(Editor *editor, SDL_Event event, Action action);
+void (*ActionPtr)(Editor *);
 Action get_action(SDL_Event event);
 
 #endif // _ACTION_H

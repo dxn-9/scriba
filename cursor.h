@@ -7,7 +7,7 @@
 
 typedef struct TextBuffer TextBuffer; // forward declare since this also will be included in text.h
 typedef struct Selection Selection;
-typedef struct Context Context;
+typedef struct Editor Editor;
 
 typedef struct Cursor
 {
@@ -28,7 +28,7 @@ void cursor_move_left(Cursor *cursor, TextBuffer *buffer);
 void cursor_move_start_line(Cursor *cursor, TextBuffer *buffer);
 void cursor_move_end_line(Cursor *cursor, TextBuffer *buffer);
 void cursor_move_to_selection_start(Cursor *cursor, Selection *selection);
-void render_cursor(SDL_Renderer *renderer, Cursor *cursor, SDL_FRect offset);
+void render_cursor(Cursor *cursor, SDL_FRect offset);
 void cursor_set_from_buffer_index(Cursor *cursor, TextBuffer *buffer, int buffer_index);
 void debug_cursor(Cursor *cursor);
 Cursor copy_cursor(Cursor *cursor);

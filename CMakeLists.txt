@@ -15,7 +15,7 @@ set(SOURCES
     application.c
     cursor.c
     text.c
-    bottom_bar.c
+    overlay.c
     action.c
 )
 

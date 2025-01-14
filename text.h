@@ -41,7 +41,7 @@ typedef struct Selection
 
 } Selection;
 
-typedef struct Context Context;
+typedef struct Editor Editor;
 
 extern int max_horizontal_characters;
 extern TTF_Font *font;
@@ -65,7 +65,7 @@ void selection_start(Selection *selection, Cursor *cursor, TextBuffer *buffer);
 void selection_delete(Selection *selection, TextBuffer *buffer);
 void selection_update(Selection *selection, Cursor *cursor, TextBuffer *buffer);
 
-void render_buffer(SDL_Renderer *renderer, TextBuffer *text, SDL_FRect view_offset);
-void render_selection(SDL_Renderer *renderer, Selection *selection, TextBuffer *text, SDL_FRect view_offset);
+void render_buffer(TextBuffer *text, SDL_FRect view_offset);
+void render_selection(Selection *selection, TextBuffer *text, SDL_FRect view_offset);
 
 #endif // _TEXT_H

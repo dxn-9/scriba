@@ -22,6 +22,8 @@ typedef struct
     int current_editor; // Index of the current editor
     int char_w, char_h; // Width and height of glyphs
     int win_w, win_h;
+    SDL_Renderer *renderer;
+    SDL_Window *window;
 
 } Application;
 

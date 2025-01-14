@@ -97,12 +97,12 @@ inline void cursor_move_right(Cursor *cursor, TextBuffer *buffer)
     cursor_set_x(cursor, buffer, MIN(get_line_length(buffer, cursor->y), cursor->x + 1));
 }
 
-void render_cursor(SDL_Renderer *renderer, Cursor *cursor, SDL_FRect offset)
+void render_cursor(Cursor *cursor, SDL_FRect offset)
 {
     bool is_odd = (application.time / RECTANGLE_BLINK) % 2 == 0;
     SDL_Color color = is_odd ? red : blue;
     SDL_FRect rect = {(cursor->view_x * application.char_w) + offset.x, (cursor->y * application.char_h) + offset.y, CURSOR_VIEW_SIZE, application.char_h};
-    render_fill_rectangle(renderer, color, rect);
+    render_fill_rectangle(color, rect);
 }
 
 void cursor_set_from_buffer_index(Cursor *cursor, TextBuffer *buffer, int index)

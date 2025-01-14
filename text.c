@@ -178,7 +178,7 @@ char *get_text_to_render(char *text, int size)
     return result;
 }
 
-void render_line_counter(SDL_Renderer *renderer, int number, SDL_FRect *view_offset)
+void render_line_counter(int number, SDL_FRect *view_offset)
 {
     char line_text[LINE_NUMBER_SPACE + 1] = {0};
     char whitespace[LINE_NUMBER_SPACE + 1] = {0};
@@ -190,13 +190,13 @@ void render_line_counter(SDL_Renderer *renderer, int number, SDL_FRect *view_off
     }
     sprintf(line_text, "%s%i", whitespace, number + 1);
     SDL_FRect rect_mask = {.x = 0.0, .h = application.char_h, .y = number * application.char_h + view_offset->y, .w = get_line_number_offset() - 4.0};
-    render_fill_rectangle(renderer, LINE_COLOR, rect_mask);
-    render_text(renderer, line_text, LINE_TEXT_COLOR, 0, view_offset->y + number * application.char_h);
+    render_fill_rectangle(LINE_COLOR, rect_mask);
+    render_text(line_text, LINE_TEXT_COLOR, 0, view_offset->y + number * application.char_h);
 }
 
 // FIXME: this is bad for performance. we're basically creating a new texture every frame
 // for each line. It should be cached.
-void render_buffer(SDL_Renderer *renderer, TextBuffer *buffer, SDL_FRect view_offset)
+void render_buffer(TextBuffer *buffer, SDL_FRect view_offset)
 {
     Vector text = buffer->text;
 
@@ -216,29 +216,29 @@ void render_buffer(SDL_Renderer *renderer, TextBuffer *buffer, SDL_FRect view_of
 
             if (line->bytes == 0)
             {
-                render_line_counter(renderer, i, &view_offset);
+                render_line_counter(i, &view_offset);
                 free(text_render);
                 continue;
             }
             else
             {
-                render_text(renderer, text_render, TEXT_COLOR, view_offset.x, view_offset.y + i * application.char_h);
-                render_line_counter(renderer, i, &view_offset);
+                render_text(text_render, TEXT_COLOR, view_offset.x, view_offset.y + i * application.char_h);
+                render_line_counter(i, &view_offset);
                 free(text_render);
             }
         }
     }
 }
 
-void render_selection(SDL_Renderer *renderer, Selection *selection, TextBuffer *buffer, SDL_FRect view_offset)
+void render_selection(Selection *selection, TextBuffer *buffer, SDL_FRect view_offset)
 {
     if (!selection->is_active)
         return;
     Uint8 r, g, b, a;
-    SDL_GetRenderDrawColor(renderer, &r, &g, &b, &a);
+    SDL_GetRenderDrawColor(application.renderer, &r, &g, &b, &a);
     SDL_Color color = {
         .r = 211, .g = 164, .b = 227};
-    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+    SDL_SetRenderDrawColor(application.renderer, color.r, color.g, color.b, color.a);
     Vector rects = vector_new(sizeof(SDL_FRect));
 
     int y_diff = selection->end_y - selection->start_y;
@@ -286,9 +286,9 @@ void render_selection(SDL_Renderer *renderer, Selection *selection, TextBuffer *
     for (int i = 0; i < rects.length; ++i)
     {
         SDL_FRect *rect = &((SDL_FRect *)rects.data)[i];
-        SDL_RenderFillRect(renderer, rect);
+        SDL_RenderFillRect(application.renderer, rect);
     }
-    SDL_SetRenderDrawColor(renderer, r, g, b, a);
+    SDL_SetRenderDrawColor(application.renderer, r, g, b, a);
     vector_free(&rects);
 }
 
